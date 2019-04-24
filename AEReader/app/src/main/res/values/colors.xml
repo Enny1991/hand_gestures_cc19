@@ -3,4 +3,10 @@
     <color name="colorPrimary">#008577</color>
     <color name="colorPrimaryDark">#00574B</color>
     <color name="colorAccent">#D81B60</color>
+    <color name="colorBlack">#000000</color>
+    <color name="colorNight">#0C090A</color>
+    <color name="colorGunmetal">#2C3539</color>
+    <color name="colorMidnight">#2B1B17</color>
+    <color name="colorBattleshipgray">#848482</color>
+    <color name="colorOrinalline">#c4c0c0</color>
 </resources>

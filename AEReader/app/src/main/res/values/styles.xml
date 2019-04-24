@@ -8,4 +8,6 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
+    <string name="title_activity_list">Bluetooh Devices</string>
+
 </resources>

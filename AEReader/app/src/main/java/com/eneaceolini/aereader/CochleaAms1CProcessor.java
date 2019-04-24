@@ -13,7 +13,7 @@ import java.util.ArrayList;
 * https://groups.google.com/forum/#!forum/android-based-robotics
 * https://neuromorphs.net/nm/wiki/AndroideDVS
 */
-public class CochleaAms1CProcessor {
+public class CochleaAms1CProcessor extends AERProcessor {
 	static final String TAG = "Serial processor";
 
 	private ArrayList<CochleaAMS1cEvent>     mEvents;
@@ -90,6 +90,11 @@ public class CochleaAms1CProcessor {
 		mAsciiData 				= "";
 		mEDVSTimestamp 			= 0;		
 		mInputProcessingIndex 	= 0;
+	}
+
+	@Override
+	void resetTimestamps() {
+
 	}
 
 

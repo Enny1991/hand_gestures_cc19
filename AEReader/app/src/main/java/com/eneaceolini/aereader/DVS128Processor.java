@@ -2,22 +2,20 @@ package com.eneaceolini.aereader;
 
 import java.util.ArrayList;
 
-class DVS128Processor {
+class DVS128Processor extends AERProcessor {
 
-	private ArrayList<DVS128Event>     mEvents;
+	private ArrayList<DVS128Event> mEvents;
 	private int wrapAdd = 0;
 
 	private final short X_MASK = 0xfe, X_SHIFT = 1, Y_MASK = 0x7f00, Y_SHIFT = 8;
 	private final short TICK_US = 1;
 
-	class DVS128Event {
-		DVS128Event(int x, int y, int type, int polarity, long ts) {
-			this.x = x;
-			this.y = y;
-			this.polarity = polarity;
-			this.ts = ts;
-			this.type = type;
-		}
+	class DVS128Event extends AEREvent {
+		int x;
+		int y;
+		int polarity;
+		int type;
+		long ts;
 
 		DVS128Event() {
 			this.x = 0;
@@ -26,12 +24,6 @@ class DVS128Processor {
 			this.ts = 0;
 			this.type = 0;
 		}
-
-		int x;
-		int y;
-		int polarity;
-		int type;
-		long ts;
 	}
 
 
@@ -40,7 +32,7 @@ class DVS128Processor {
 	}
 
 
-	ArrayList<DVS128Event> process(byte[] buf, int bytesSent) {
+	public ArrayList<DVS128Event> process(byte[] buf, int bytesSent) {
 		if(!mEvents.isEmpty()) 	mEvents.clear();
 
 		int lastTimestampTmp = 0;
@@ -89,7 +81,7 @@ class DVS128Processor {
 		return mEvents;
 	}
 
-	private void resetTimestamps(){
+	void resetTimestamps(){
 		// TODO
 	}
 }
