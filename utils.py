@@ -250,6 +250,10 @@ class Person(object):
         self.trials = {c: [] for c in classes}
         self.begs = {c: [] for c in classes}
         self.ends = {c: [] for c in classes}
+        self.x = {c: [] for c in classes}
+        self.y = {c: [] for c in classes}
+        self.ts = {c: [] for c in classes}
+        self.pol = {c: [] for c in classes}
         
         self.spk_trials = {c: [] for c in classes}
 #         self.trials = {'rock': [], 'paper': [], 'scissor': []}
