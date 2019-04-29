@@ -142,7 +142,7 @@ if GENERATE_TIFF:
         for gesture in classes:
             for trial in range(5):
                 img = subjects[subject].dvs[gesture][trial]
-                plt.imsave('./dump/img/'+subject+'_'+gesture+'_'+str(trial)+'.tiff', create_frame(img[1], img[0]))
+                plt.imsave('./dump/img_src/'+subject+'_'+gesture+'_'+str(trial)+'.tiff', create_frame(img[1], img[0]))
 
 
 
