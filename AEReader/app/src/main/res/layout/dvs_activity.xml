@@ -9,34 +9,43 @@
     android:orientation="vertical"
     tools:context=".DVSActivity" >
 
-    <EditText
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="textPersonName"
-            android:text="25"
-            android:ems="10"
-            android:id="@+id/editText"/>
     <Button
-        android:id="@+id/loadBias"
+        android:id="@+id/connect"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Load Bias" />
+        android:text="Connect to DVS" />
 
-    <Button
-        android:id="@+id/devInfo"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="INFO" />
+        android:orientation="horizontal">
+
+        <Spinner
+            android:id="@+id/spinner"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:entries="@array/dvs_bias"/>
+
+        <Button
+            android:id="@+id/loadBias"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:text="Load Bias" />
+    </LinearLayout>
 
     <Button
             android:id="@+id/start"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:enabled="false"
             android:text="Start Transfer" />
     <Button
             android:id="@+id/stop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:enabled="false"
             android:text="Stop Transfer" />
     <TextView
         android:id="@+id/info"

@@ -253,16 +253,14 @@ public class ReadEvents extends Thread {
                     switch (DEVICE) {
                         case DVS128_ID:
                             ArrayList<DVS128Processor.DVS128Event> events = processor.process(usbData, c);
-                            if (events.size() > 1) {
+                            if (events.size() > 0) {
                                 newdata = true;
                                 for (int i = 0; i < events.size(); i++) //create image data from events
                                 {
-
                                     DVS128Processor.DVS128Event event = events.get(i);
-
                                     if (event.polarity == 0)
-                                        data_image[128 * event.x + event.y] = 0xFFFF0000; //red
-                                    else data_image[128 * event.x + event.y] = 0xFF00FF00; //green
+                                        data_image[128 * (127 - event.y) + event.x] = 0xFFFF0000; //red
+                                    else data_image[128 * (127 - event.y) + event.x] = 0xFF00FF00; //green
                                 }
                             }
                             break;

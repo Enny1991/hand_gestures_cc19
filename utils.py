@@ -254,6 +254,8 @@ class Person(object):
         self.y = {c: [] for c in classes}
         self.ts = {c: [] for c in classes}
         self.pol = {c: [] for c in classes}
+        self.sift = {c: [] for c in classes}
+        self.surf = {c: [] for c in classes}
         
         self.spk_trials = {c: [] for c in classes}
 #         self.trials = {'rock': [], 'paper': [], 'scissor': []}

@@ -51,11 +51,6 @@
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:label="@string/title_activity_list" />
 
-        <activity
-            android:name=".DVSActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize"
-            android:label="@string/title_activity_list" />
-
     </application>
 
 </manifest>
