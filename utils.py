@@ -5,15 +5,15 @@ from scipy.signal import butter, lfilter, welch, square
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
 
-def do_tc_single(x_train, y_train, x_test, y_test):
-    clf = SVC(gamma='auto', kernel='rbf')
+def do_tc_single(x_train, y_train, x_test, y_test, kernel='linear'):
+    clf = SVC(gamma='auto', kernel=kernel)
     clf.fit(x_train, y_train)
     _acc_test = clf.score(x_test, y_test)
     _acc_train = clf.score(x_train, y_train)
     return _acc_train, _acc_test
 
 
-def do_tc_full(x, y, pca_comp=0, shuffle=True, folds=10, verbose=False, avg=False):
+def do_tc_full(x, y, pca_comp=0, shuffle=True, folds=10, verbose=False, avg=False, kernel='linear'):
     
     n_samples, dims = x.shape
     
@@ -43,7 +43,7 @@ def do_tc_full(x, y, pca_comp=0, shuffle=True, folds=10, verbose=False, avg=Fals
         test_y = y[fold * split: (fold + 1) * split].squeeze()
         train_y = np.vstack([y[:split * fold], y[split * (fold + 1):]]).squeeze()
 
-        _acc_train, _acc_test = do_tc_single(train_X, train_y, test_X, test_y)
+        _acc_train, _acc_test = do_tc_single(train_X, train_y, test_X, test_y, kernel=kernel)
         
         all_acc_train.append(_acc_train)
         all_acc_test.append(_acc_test)
@@ -89,7 +89,7 @@ def analyze(x, fs=200, frame_len=0.3, frame_step=0.1, feat='MAV', order=1, thres
     frame_len_samples = int(frame_len * fs)
     frame_step_samples = int(frame_step * fs)
     
-    n_win = (l - frame_len_samples) // frame_step_samples
+    n_win = (l - frame_len_samples) // frame_step_samples + 1
     ret = np.zeros((n_win, n_ch))
     
     w = np.hamming(frame_len_samples)

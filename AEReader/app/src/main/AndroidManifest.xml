@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.CAMERA"/>
 
     <uses-feature
         android:name="android.hardware.bluetooth_le"
@@ -48,6 +49,11 @@
 
         <activity
             android:name=".ListActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:label="@string/title_activity_list" />
+
+        <activity
+            android:name=".BlobActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:label="@string/title_activity_list" />
 

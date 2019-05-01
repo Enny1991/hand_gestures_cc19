@@ -21,6 +21,12 @@
                 android:title="Disconnect"
                 android:orderInCategory="100"
                 app:showAsAction="never"/>
+
+            <item
+                android:id="@+id/blob"
+                android:title="Blob"
+                android:orderInCategory="100"
+                app:showAsAction="never"/>
         </menu>
     </item>
 </menu>
