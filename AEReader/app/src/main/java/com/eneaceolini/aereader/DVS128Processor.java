@@ -70,6 +70,7 @@ class DVS128Processor extends AERProcessor {
 				e.polarity = e.type == 0 ? 0 : 1;
 				e.x = (short) (128 - ((short) ((address & X_MASK) >>> X_SHIFT)));
 				e.y = (short) ((address & Y_MASK) >>> Y_SHIFT);
+				e.ts = timestamps;
 
 				if ((e.x < 128) & (e.y < 128)){
 					mEvents.add(e);

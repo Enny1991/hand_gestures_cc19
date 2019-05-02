@@ -17,6 +17,7 @@ import android.support.v4.app.Fragment;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -25,14 +26,30 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfFloat;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
+import org.opencv.objdetect.HOGDescriptor;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 
 /**
  * Created by User on 2/28/2017.
  */
 
-public class DVSFragment extends Fragment{
+public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCameraViewListener2 {
     Button btnStart;
     Button btnStop;
     Button btnBias;
@@ -49,14 +66,68 @@ public class DVSFragment extends Fragment{
     private static final String BIAS_FAST = "Fast";
     private static final String BIAS_SLOW = "Slow";
 
+    // opencv stuff
+    private CameraBridgeViewBase cameraView;
+    private boolean              mIsColorSelected = false;
+    private Mat                  mRgba;
+    private Scalar               mBlobColorRgba;
+    private Scalar               mBlobColorHsv;
+    private ColorBlobDetector    mDetector;
+    private Mat mSpectrum;
+    private Size SPECTRUM_SIZE;
+    private Scalar CONTOUR_COLOR;
+    BoundedBuffer<ArrayList> boundedBuffer;
+    ArrayList<DVS128Processor.DVS128Event> toDraw;
+    BlockingQueue<ArrayList> blockingQueue = new LinkedBlockingDeque<>();
+    BlockingQueue<Mat> frameQueue = new LinkedBlockingDeque<>();
 
+
+
+    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(getContext()) {
+        @Override
+        public void onManagerConnected(int status) {
+            switch (status) {
+                case LoaderCallbackInterface.SUCCESS:
+                {
+                    cameraView.enableView();
+                } break;
+                default:
+                {
+                    super.onManagerConnected(status);
+                } break;
+            }
+        }
+    };
+
+    @Override
+    public void onPause()
+    {
+        super.onPause();
+        if (cameraView != null)
+            cameraView.disableView();
+    }
+
+    @Override
+    public void onResume()
+    {
+        super.onResume();
+
+        if (!OpenCVLoader.initDebug()) {
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, getContext(), mLoaderCallback);
+        } else {
+            mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+        }
+    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         final View v = inflater.inflate(R.layout.dvs_activity, container, false);
         assert v != null;
-        imageView = v.findViewById(R.id.an_imageView);
+        cameraView = v.findViewById(R.id.camera_view);
+        cameraView.setVisibility(SurfaceView.VISIBLE);
+        cameraView.setCvCameraViewListener(this);
+
         btnStart = v.findViewById(R.id.start);
         btnStop = v.findViewById(R.id.stop);
         btnBias = v.findViewById(R.id.loadBias);
@@ -68,6 +139,11 @@ public class DVSFragment extends Fragment{
         getActivity().getWindowManager().getDefaultDisplay().getMetrics(dm);
         width_image = dm.heightPixels/2;
         height_image = dm.heightPixels/2;
+
+//        boundedBuffer = new BoundedBuffer<>();
+//        boundedBuffer.setClosed(false);
+
+        toDraw = new ArrayList<>();
 
         btnConnect.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -86,6 +162,7 @@ public class DVSFragment extends Fragment{
                     usbManager.requestPermission(device, permissionIntent);
                     btnBias.setEnabled(true);
                     btnStart.setEnabled(true);
+                    Toast.makeText(getContext(), "Connected to DVS128!", Toast.LENGTH_SHORT).show();
                 }catch (Exception e){
                     e.printStackTrace();
                     Toast.makeText(getContext(), "Could not open device", Toast.LENGTH_SHORT).show();
@@ -99,13 +176,15 @@ public class DVSFragment extends Fragment{
                 btnStop.setEnabled(true);
                 btnStart.setEnabled(false);
                 readEvents.start();
+                reader.start();
+                STOP = false;
                 handler = new Handler();
-                runnable = new Runnable() {
-                    public void run() {
-                        update_gui();
-                    }
-                };
-                handler.post(runnable);
+//                runnable = new Runnable() {
+//                    public void run() {
+//                        update_gui();
+//                    }
+//                };
+//                handler.post(runnable);
             }
         });
 
@@ -114,7 +193,40 @@ public class DVSFragment extends Fragment{
             public void onClick(View v) {
                 readEvents.stop_thread();
                 btnStart.setEnabled(true);
-                readEvents = new ReadEvents(getContext(), device, usbManager, 0);
+                boundedBuffer = new BoundedBuffer<>();
+                boundedBuffer.setClosed(false);
+                STOP = true;
+                reader = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        while (true) {
+                            Mat mat = new Mat(mRgba.height(), mRgba.width(), CvType.CV_8UC4);
+                            if (null != readEvents) {
+                                try {
+
+                                    ArrayList<DVS128Processor.DVS128Event> accumulate = new ArrayList<>();
+                                    ArrayList<DVS128Processor.DVS128Event> a;
+                                    if (blockingQueue.size() > 0) {
+                                        for (int i = 0; i < 30; i++) {
+                                            a = blockingQueue.take();
+                                            accumulate.addAll(a);
+                                            if (blockingQueue.size() == 0) break;
+                                        }
+
+                                        mat = fillMat(accumulate, mRgba.height(), mRgba.width());
+                                    }
+
+                                    frameQueue.put(mat);
+                                } catch (InterruptedException ex) {
+                                    Log.d("INTERRUPTED", "Could not draw");
+                                }
+                            }
+
+
+                        }
+                    }
+                });
+                readEvents = new ReadEvents(getContext(), device, usbManager, 0, mRgba.height(), mRgba.width(), blockingQueue);
                 handler.removeCallbacks(runnable);
             }
         });
@@ -134,11 +246,51 @@ public class DVSFragment extends Fragment{
 
                     int start = connection.controlTransfer(0, 0xb8, 0, 0, b, b.length, 0);
                     Log.d("SEND BIAS", "" + start);
+                    Toast.makeText(getContext(), "Bias set!", Toast.LENGTH_SHORT).show();
+
             }
         });
 
+
+
         return v;
     }
+
+    boolean STOP = true;
+
+    Thread reader = new Thread(new Runnable() {
+        @Override
+        public void run() {
+            Mat mat;
+            ArrayList<DVS128Processor.DVS128Event> accumulate;
+            while (true) {
+                if (null != readEvents) {
+                    try {
+                        accumulate = new ArrayList<>();
+                        ArrayList<DVS128Processor.DVS128Event> a;
+                        if (blockingQueue.size() > 0) {
+                            a = blockingQueue.take();
+                            accumulate.addAll(a);
+                            if (accumulate.size() > 2) {
+                                while ((accumulate.get(accumulate.size() - 1).ts - accumulate.get(0).ts) < 100000) {
+                                    a = blockingQueue.take();
+                                    accumulate.addAll(a);
+                                }
+                                Log.d("Adding FRAME", "" + (accumulate.get(accumulate.size() - 1).ts - accumulate.get(0).ts));
+                                mat = fillMat(accumulate, mRgba.height(), mRgba.width());
+                                frameQueue.put(mat);
+                            }
+                        }
+
+                    } catch (InterruptedException ex) {
+                        Log.d("INTERRUPTED", "Could not draw");
+                    }
+                }
+
+
+            }
+        }
+    });
 
     public byte[] formatConfigurationBytes(String config) {
         // we need to cast from PotArray to IPotArray, because we need the shift register stuff
@@ -218,7 +370,7 @@ public class DVSFragment extends Fragment{
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         if(device != null){
                             //call method to set up device communication
-                            readEvents = new ReadEvents(getContext(), device, usbManager, 0);
+                            readEvents = new ReadEvents(getContext(), device, usbManager, 0, mRgba.height(), mRgba.width(), blockingQueue);
                             Log.d("DEVICE", "CONNECTED");
                         }
                     }
@@ -243,4 +395,109 @@ public class DVSFragment extends Fragment{
     }
 
 
+    @Override
+    public void onCameraViewStarted(int width, int height) {
+        mRgba = new Mat(height, width, CvType.CV_8UC4);
+        mDetector = new ColorBlobDetector();
+        mSpectrum = new Mat();
+        mBlobColorRgba = new Scalar(255);
+        mBlobColorHsv = new Scalar(255);
+        SPECTRUM_SIZE = new Size(200, 64);
+        CONTOUR_COLOR = new Scalar(255,0,0,255);
+    }
+
+    @Override
+    public void onCameraViewStopped() {
+        mRgba.release();
+    }
+
+    int culo = 0;
+    long lastTime = System.currentTimeMillis();
+
+    @Override
+    public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+        Log.d("Frame rate", "" + 1000 / (System.currentTimeMillis() - lastTime));
+        lastTime = System.currentTimeMillis();
+        mRgba = inputFrame.rgba();
+        mRgba = new Mat(mRgba.height(), mRgba.width(), CvType.CV_8UC4);
+//        Mat ret = new Mat (mRgba.height(), mRgba.width(), CvType.CV_8UC4);
+//        for (int i = 0; i < 10; i++){
+//            mRgba.put(i * culo,i * culo, 255, 10, 10, 255);
+//        }
+//        culo += 1;
+//        if (culo == 10) culo = 0;
+        if (null != readEvents) {
+            try {
+                if (frameQueue.size() > 0)
+                    mRgba = frameQueue.take();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        return mRgba;
+    }
+
+    public synchronized Mat fillMat(ArrayList<DVS128Processor.DVS128Event> events, int height, int width){
+//        Log.d("EVENTS 4 FRAME", "" + events.size());
+        DVS128Processor.DVS128Event e;
+        int r;
+        int g;
+        Mat mat = new Mat(height, width, CvType.CV_8UC4);
+        if (events.size() > 0) {
+            if (null != events.get(0))
+                Log.d("--Delta", "" + (events.get(events.size() - 1).ts - events.get(0).ts));
+        }
+
+        for (int i = 0; i < events.size(); i++) {
+            e = events.get(i);
+            if (null != e) {
+                if (e.polarity > 0) {
+                    r = 255;
+                    g = 10;
+                } else {
+                    r = 10;
+                    g = 255;
+                }
+
+
+                for (int j = 0; j < 4; j++) {
+                    for (int k = 0; k < 4; k++) {
+                        mat.put(e.x * 4 + j, e.y * 4 + k, r, g, 10, 255);
+                    }
+                }
+            }
+        }
+        return mat;
+    }
+
+    private static double[] exportImgFeatures(Mat frame) {
+
+        Mat mat = new Mat();
+
+        Imgproc.cvtColor(frame, mat, Imgproc.COLOR_RGB2GRAY);
+        Log.d("FRAME", "" + frame.type());
+        Log.d("MAT", "" + mat.type());
+//        for (int i = 0; i < rows; i++) {
+//            for (int j = 0; j < cols; j++) {
+//                mat.put(i, j, data[i * cols + j]);
+//            }
+//        }
+
+        HOGDescriptor hog = new HOGDescriptor(
+                new Size(28, 28), //winSize
+                new Size(14, 14), //blocksize
+                new Size(7, 7), //blockStride,
+                new Size(14, 14), //cellSize,
+                9); //nbins
+
+        MatOfFloat descriptors = new MatOfFloat();
+        hog.compute(mat, descriptors);
+
+        float[] descArr = descriptors.toArray();
+        double retArr[] = new double[descArr.length];
+        for (int i = 0; i < descArr.length; i++) {
+            retArr[i] = descArr[i];
+        }
+        return retArr;
+    }
 }

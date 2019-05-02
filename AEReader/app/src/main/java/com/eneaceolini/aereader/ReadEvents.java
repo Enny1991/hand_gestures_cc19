@@ -9,10 +9,15 @@ import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.util.Log;
 
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 
 
 public class ReadEvents extends Thread {
@@ -56,6 +61,7 @@ public class ReadEvents extends Thread {
     public final static short FPGA_USB = 9;
     public final static short FPGA_ADC = 10;
     public static final byte VR_FPGA_CONFIG_MULTIPLE = (byte) 0xC2;
+    BoundedBuffer<ArrayList> boundedBuffer;
 
     /**
      * Data that will be mapped into a bitmap for display
@@ -78,11 +84,24 @@ public class ReadEvents extends Thread {
     private int timeout;
     private int mode;
     private int DEVICE;
+    public ArrayList<DVS128Processor.DVS128Event> bufferEvents;
+    public ArrayList<Mat> frames;
+    public int height, width;
+    public Mat frame = null;
+    private int bufReady = 0;
+    public ArrayList<DVS128Processor.DVS128Event> bufferEvents0;
+    public ArrayList<DVS128Processor.DVS128Event> bufferEvents1;
+    public ArrayList<DVS128Processor.DVS128Event> bufferEvents2;
+    public int packetCounter = 0;
+    BlockingQueue<ArrayList> blockingQueue;
 
-    ReadEvents(Context context, UsbDevice device, UsbManager usbManager, int timeout) {
+    ReadEvents(Context context, UsbDevice device, UsbManager usbManager, int timeout, int height, int width, BlockingQueue<ArrayList> blockingQueue) {
         context_activity = context;
+        this.blockingQueue = blockingQueue;
         // Depending on product ID you need to have different processors
         Log.d("DEVICE ID", "" + device.getProductId());
+        this.height = height;
+        this.width = width;
         switch (device.getProductId()){
             case COCHLEA_ID:
                 processor = new CochleaAms1CProcessor();
@@ -102,9 +121,17 @@ public class ReadEvents extends Thread {
                 break;
         }
         data_image = new int[128 * 128];
+
         this.device = device;
         this.usbManager = usbManager;
         this.timeout = timeout;
+
+        bufferEvents = new ArrayList<>();
+        bufferEvents0 = new ArrayList<>();
+        bufferEvents1 = new ArrayList<>();
+        bufferEvents2 = new ArrayList<>();
+        frames = new ArrayList<>();
+
     }
 
     protected synchronized void disableINEndpoint() {
@@ -253,15 +280,30 @@ public class ReadEvents extends Thread {
                     switch (DEVICE) {
                         case DVS128_ID:
                             ArrayList<DVS128Processor.DVS128Event> events = processor.process(usbData, c);
+//                            bufferEvents.clear();
+//                           bufferEvents.addAll(events);
+//                           if (bufferEvents.size() > 200){
+//                               triggerFrame();
+//                           } else{
+//                               frame = null;
+//                           }
+
                             if (events.size() > 0) {
                                 newdata = true;
-                                for (int i = 0; i < events.size(); i++) //create image data from events
-                                {
-                                    DVS128Processor.DVS128Event event = events.get(i);
-                                    if (event.polarity == 0)
-                                        data_image[128 * (127 - event.y) + event.x] = 0xFFFF0000; //red
-                                    else data_image[128 * (127 - event.y) + event.x] = 0xFF00FF00; //green
-                                }
+//                                for (int i = 0; i < events.size(); i += 1) //create image data from events
+//                                {
+
+                                    try {
+                                        blockingQueue.put(events);
+                                    } catch (InterruptedException ex) {
+                                        Log.d("INTERRUPTED", "Had to DROP");
+                                    }
+//                                }
+//                                    DVS128Processor.DVS128Event event = events.get(i);
+//                                if (bufReady == 0) bufferEvents0.addAll(events);
+//                                else if (bufReady == 1) bufferEvents1.addAll(events);
+//                                else bufferEvents2.addAll(events);
+
                             }
                             break;
                         case DAVIS240_ID:
@@ -283,14 +325,14 @@ public class ReadEvents extends Thread {
 
                 }
 
-                if (c < 0) {
-                    STOP = true;
-//                    try {
-//                        Thread.sleep(500);
-//                    } catch (InterruptedException e) {
-//                        e.printStackTrace();
-//                    }
-                }
+//                if (c < 0) {
+//                    STOP = true;
+////                    try {
+////                        Thread.sleep(500);
+////                    } catch (InterruptedException e) {
+////                        e.printStackTrace();
+////                    }
+//                }
             }
         }
 
@@ -333,6 +375,48 @@ public class ReadEvents extends Thread {
         } else return null;
     }
 
+    public synchronized ArrayList<DVS128Processor.DVS128Event> getEvents() {
+
+        ArrayList<DVS128Processor.DVS128Event> toRet = new ArrayList<>();
+//        if (bufReady == 0) {
+//            for (int i = 0; i < bufferEvents2.size(); i += 5)
+//                toRet.add(bufferEvents2.get(i));
+//            bufferEvents2.clear();
+//            bufferEvents2 = new ArrayList<>();
+//            bufReady = 1;
+//        }
+//        if (bufReady == 1) {
+//            for (int i = 0; i < bufferEvents0.size(); i += 5)
+//                toRet.add(bufferEvents0.get(i));
+//            bufferEvents0.clear();
+//            bufferEvents0 = new ArrayList<>();
+//            bufReady = 2;
+//        }
+//        if (bufReady == 2) {
+//            for (int i = 0; i < bufferEvents1.size(); i += 5)
+//                toRet.add(bufferEvents1.get(i));
+//            bufferEvents1.clear();
+//            bufferEvents1 = new ArrayList<>();
+//            bufReady = 2;
+//        }
+
+        return toRet;
+    }
+
+    public synchronized Mat getFrame() {
+//        Mat dst = new Mat(height, width, CvType.CV_8UC4);
+////        Mat dst2 = new Mat(height, width, CvType.CV_8UC4);
+////        if (frames.size() >= 3) {
+////            Core.add(frames.get(0), frames.get(1), dst);
+////            Core.add(dst, frames.get(1), dst2);
+////            frames.remove(0);
+////            frames.remove(0);
+////            frames.remove(0);
+////        }
+////
+////        return dst2;
+        return frame;
+    }
     /**
      * @return
      */
@@ -352,6 +436,57 @@ public class ReadEvents extends Thread {
 
         int res = connection.controlTransfer(0, 0xb4, 0, 0, null, 0, 0);
         Log.d("END TRANSFER", "" + res);
+    }
+
+    public synchronized Mat fillMat(ArrayList<DVS128Processor.DVS128Event> events){
+        Log.d("EVENTS 4 FRAME", "" + events.size());
+        DVS128Processor.DVS128Event e;
+        int r;
+        int g;
+        Mat mat = new Mat(height, width, CvType.CV_8UC4);
+        for (int i = 0; i < events.size(); i++) {
+            e = events.get(i);
+            if (e.polarity > 0) {
+                r = 255;
+                g = 10;
+            } else {
+                r = 10;
+                g = 255;
+            }
+
+//            mat.put(e.x, e.yzz, r, g, 10, 255);
+            for (int j = 0; j < 4; j++){
+                for (int k = 0; k < 4; k++){
+                    mat.put(e.x * 4 + j, e.y * 4 + k, r, g, 10, 255);
+                }
+            }
+        }
+        return mat;
+    }
+
+    public void triggerFrame(){
+        DVS128Processor.DVS128Event e;
+        int r;
+        int g;
+        frame = new Mat(height, width, CvType.CV_8UC4);
+        for (int i = 0; i < bufferEvents.size(); i++) {
+            e = bufferEvents.get(i);
+            if (e.polarity > 0) {
+                r = 255;
+                g = 10;
+            } else {
+                r = 10;
+                g = 255;
+            }
+
+            for (int j = 0; j < 4; j++){
+                for (int k = 0; k < 4; k++){
+                    frame.put(e.x * 4 + j, e.y * 4 + k, r, g, 10, 255);
+                }
+            }
+        }
+        bufferEvents.clear();
+
     }
 }
 
