@@ -8,7 +8,6 @@ import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
-import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
@@ -50,7 +49,7 @@ import java.util.concurrent.LinkedBlockingDeque;
  * Created by User on 2/28/2017.
  */
 
-public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCameraViewListener2 {
+public class DVSFragmentv2 extends Fragment{
     Button btnStart;
     Button btnStop;
     Button btnBias;
@@ -68,11 +67,7 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
     private static final String BIAS_SLOW = "Slow";
 
     // opencv stuff
-    private CameraBridgeViewBase cameraView;
-    private Mat mRgba;
-
     BlockingQueue<ArrayList> blockingQueue = new LinkedBlockingDeque<>();
-    BlockingQueue<Integer> blockingID = new LinkedBlockingDeque<>();
 
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(getContext()) {
@@ -80,7 +75,6 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
         public void onManagerConnected(int status) {
             switch (status) {
                 case LoaderCallbackInterface.SUCCESS: {
-                    cameraView.enableView();
                 }
                 break;
                 default: {
@@ -94,8 +88,7 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
     @Override
     public void onPause() {
         super.onPause();
-        if (cameraView != null)
-            cameraView.disableView();
+            handler.removeCallbacks(runnable);
     }
 
     @Override
@@ -112,11 +105,9 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        final View v = inflater.inflate(R.layout.dvs_activity, container, false);
+        final View v = inflater.inflate(R.layout.dvs_activity_v2, container, false);
         assert v != null;
-        cameraView = v.findViewById(R.id.camera_view);
-        cameraView.setVisibility(SurfaceView.VISIBLE);
-        cameraView.setCvCameraViewListener(this);
+
 
         btnStart = v.findViewById(R.id.start);
         btnStop = v.findViewById(R.id.stop);
@@ -124,6 +115,7 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
         btnConnect = v.findViewById(R.id.connect);
         textInfo = v.findViewById(R.id.info);
         biasSpinner = v.findViewById(R.id.spinner);
+        imageView = v.findViewById(R.id.imageView);
 
         DisplayMetrics dm = new DisplayMetrics();
         getActivity().getWindowManager().getDefaultDisplay().getMetrics(dm);
@@ -162,14 +154,21 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
                 btnStop.setEnabled(true);
                 btnStart.setEnabled(false);
                 readEvents.start();
+                //create and start handler used to update GUI
                 handler = new Handler();
+                runnable = new Runnable() {
+                    public void run() {
+                        update_gui();
+                    }
+                };
+                handler.post(runnable);
             }
         });
 
         btnStop.setOnClickListener(v1 -> {
             readEvents.stop_thread();
             btnStart.setEnabled(true);
-//            readEvents = new ReadEvents(getContext(), device, usbManager, 0, mRgba.height(), mRgba.width(), blockingQueue, blockingID);
+            readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue);
         });
 
         btnBias.setOnClickListener(v12 -> {
@@ -268,7 +267,7 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         if (device != null) {
                             //call method to set up device communication
-//                            readEvents = new ReadEvents(getContext(), device, usbManager, 0, mRgba.height(), mRgba.width(), blockingQueue, blockingID);
+                            readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue);
                             Log.d("DEVICE", "CONNECTED");
                         }
                     } else {
@@ -279,14 +278,14 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
         }
     };
 
-    public Bitmap mat2Bit(Mat mat, int height, int width) {
+    public Bitmap mat2Bit(Mat mat) {
 
     Bitmap bmp = null;
-    Mat tmp = new Mat(height, width, CvType.CV_8U, new Scalar(4));
+    Mat tmp = new Mat(mat.height(), mat.width(), CvType.CV_8UC4);
     try {
-        Imgproc.cvtColor(mat, tmp, Imgproc.COLOR_GRAY2RGBA, 4);
-        bmp = Bitmap.createBitmap(tmp.cols(), tmp.rows(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(tmp, bmp);
+//        Imgproc.cvtColor(mat, tmp, Imgproc.COLOR_GRAY2RGBA, 4);
+        bmp = Bitmap.createBitmap(mat.cols(), mat.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(mat, bmp);
     } catch(CvException e) {
         Log.d("Exception", e.getMessage());
     }
@@ -294,49 +293,33 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
     }
 
 
-    @Override
-    public void onCameraViewStarted(int width, int height) {
-        mRgba = new Mat(height, width, CvType.CV_8UC4);
-//        mDetector = new ColorBlobDetector();
-//        mSpectrum = new Mat();
-//        mBlobColorRgba = new Scalar(255);
-//        mBlobColorHsv = new Scalar(255);
-//        SPECTRUM_SIZE = new Size(200, 64);
-//        CONTOUR_COLOR = new Scalar(255,0,0,255);
-    }
 
-    @Override
-    public void onCameraViewStopped() {
-        mRgba.release();
-    }
 
     long lastTime = System.currentTimeMillis();
 
-    @Override
-    public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+    public Bitmap onCameraFrame() {
         Log.d("Frame rate", "" + 1000 / (System.currentTimeMillis() - lastTime));
         lastTime = System.currentTimeMillis();
-        mRgba = inputFrame.rgba();
-        mRgba = new Mat(mRgba.height(), mRgba.width(), CvType.CV_8UC4);
-        ArrayList<DVS128Processor.DVS128Event> toDraw = new ArrayList<>();
+        Bitmap map = null;
+        ArrayList<DVS128Processor.DVS128Event> toDraw;
         if (null != readEvents) {
             synchronized (this) {
                 try {
                     if (blockingQueue.size() > 0) {
                         toDraw = blockingQueue.take();
                         Log.d("QUEUE SIZE", "" + blockingQueue.size());
-                        Log.d("ID TAKEN", "" + blockingID.take());
                         if (toDraw.size() > 0)
                             Log.d("--Delta", "" + (toDraw.get(toDraw.size() - 1).ts - toDraw.get(0).ts));
 
-                        mRgba = fillMat(toDraw, mRgba.height(), mRgba.width());
+                        map = mat2Bit(fillMat(toDraw, 128, 128));
+
                     }
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
         }
-        return mRgba;
+        return map;
     }
 
     public synchronized Mat fillMat(ArrayList<DVS128Processor.DVS128Event> events, int height, int width){
@@ -344,6 +327,11 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
         int r;
         int g;
         Mat mat = new Mat(height, width, CvType.CV_8UC4);
+        for(int i = 0; i < height; i++){
+            for(int j = 0; j < width; j++){
+                mat.put(i, j, 0, 0, 0, 255);
+            }
+        }
 
         for (int i = 0; i < events.size(); i += 10) {
             e = events.get(i);
@@ -355,11 +343,12 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
                     r = 10;
                     g = 255;
                 }
-                for (int j = 0; j < 4; j++) {
-                    for (int k = 0; k < 4; k++) {
-                        mat.put(e.x * 4 + j, e.y * 4 + k, r, g, 10, 255);
-                    }
-                }
+//                for (int j = 0; j < 4; j++) {
+//                    for (int k = 0; k < 4; k++) {
+//                        mat.put(e.x * 4 + j, e.y * 4 + k, r, g, 10, 255);
+                        mat.put(e.y, 127 - e.x, r, g, 10, 255);
+//                    }
+//                }
             }
         }
         return mat;
@@ -394,5 +383,22 @@ public class DVSFragment extends Fragment implements CameraBridgeViewBase.CvCame
             retArr[i] = descArr[i];
         }
         return retArr;
+    }
+
+    /**
+     * get data from thread and updates GUI
+     */
+    private void update_gui()
+    {
+        //get image from thread and display it
+        Bitmap ima = onCameraFrame();
+
+        if(ima != null)
+        {
+            Bitmap ima2 = Bitmap.createScaledBitmap(ima, width_image, height_image, false);
+            imageView.setImageBitmap(ima2);
+        }
+
+        handler.postDelayed(runnable, 5);
     }
 }
