@@ -1,0 +1,55 @@
+### image and img multimodal classification with offline supervised learning ###
+
+--- data collection sensors:
+img: inilabs dvs128
+emg: myo
+
+--- dataset:
+-> 10 people -> 30 sessions -> we deleted two sessions for bad recordings -> 28 sessions
+-> 5 gestures x 5 times = 25 gestures / session
+-> 2000 ms/gesture -> we deleted the first 400 ms for bad recordings -> 1600 ms / 200 ms = 8 samples / gesture
+-> dataset size = 28 x 25 x 8 = 5600 samples
+Dataset patitioning: 66% -> training subset = 3696 samples, test subset = 1904 samples
+
+--- raw data:
+img training dataset shape = (5600, 60, 60) -> cropped from (5600, 128, 128) to keep the relevant part of the frame
+emg training dataset shape = (5600, 40, 8)
+labels shape = (5600, 1)
+
+--- pre-processed data -> manual feature extraction (emg) + standrdization + min-max_normalization + formating:
+img training dataset shape = (5600, 60, 60, 1)
+emg training dataset shape = (5600, 24, 1)
+labels shape = (5600, 5)
+img_min =  -10.0
+img_max =  4.342945178152237e-11
+img_mean =  0.11297054755424565
+img_std =  0.29921494048849095
+emg_min =  0.0
+emg_max =  68.3781763430409
+emg_mean =  0.1490529122635982
+emg_std =  0.11991758770519481
+
+--- cnn for img classification:
+Arch: Conv2D(8, (3, 3), input=(60, 60, 1)) -> Conv2D(8, (3, 3)) -> MaxPooling2D((2, 2)) -> Dense(50) -> Dense(5)
+Total params: 314,569
+Accuracy: 91.23%
+
+--- cnn for emg classification:
+Arch: Conv1D(32, 3) -> Conv1D(32, 3, input=(24, 1)) -> MaxPooling1D(2) -> Dense(100) -> Dense(5)
+Total params: 35,837
+Accuracy: 81.99%
+
+--- mlp for img and emg fusion classification:
+Arch: Dense(5, input_shape=(10))
+Total params: 55
+Accuracy: 94.49%
+
+--- dnn for img and emg fusion classification:
+input_shape: [(60, 60, 1), (24, 1)]
+output_shape: (5)
+
+--- memory of the whole dnn
+total parameters = 314569 + 35837 + 55 = 350461
+total memory = 350461 x 2 octets (16 bits) = 2803688 = 1.4 MO
+
+--- fusion gain: 3.26%
