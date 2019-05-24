@@ -304,6 +304,200 @@ def aedat2numpy(datafile, length=0, version='V2', debug=0, camera='DVS128', unit
         raise ValueError("Unsupported AEDAT file version")
         return
 
+def DAVISaedat2numpy(datafile, length=0, version='V2', debug=0, camera='DAVIS240', datatype='dvs', unit='ms'):
+    """Loads AER data file and parses these properties of AE events.
+
+    Properties:
+        * timestamps (in us).
+        * x,y-position [0..127]x[0..127] for DVS128 [0..239]x[0..127] for DAVIS240.
+        * polarity (0/1).
+        * aps frames
+
+    Args:
+        datafile (str, optional): Aedat recording as provided by jAER
+        length (int, optional): how many bytes(B) should be read; default 0=whole file.
+        version (str, optional): which file format version is used:
+            - "aedat" jAER AEDAT 2.0 = V2
+        debug (int, optional): Flag to provide more detailed report. 0 = silent, 1 (default) = print summary.
+            >=2 = print all debug.
+        camera (str): only available for DAVIS240.
+        datatype (str):
+            'dvs' = extract only dvs events
+            'aps' = extract only aps frames
+        unit: output unit of timestamps specified as a string:
+            - 'ms' (default), 'us' or 'sec'.
+
+    Returns:
+        datatype 'dvs': numpy.ndarray: (xpos, ypos, ts, pol) 2D numpy array containing data of all events.
+        datatype 'aps': frames list
+
+    Raises:
+        ValueError: Indicates that a camera was specified which is not supported or the AEDAT file version is not supported.
+    """
+
+    try:
+        aerdatafh = open(datafile, 'rb')
+    except FileNotFoundError:
+        raise FileNotFoundError('Please specify an aedat file to convert.')
+    k = 0  # line number
+    p = 0  # pointer, position on bytes
+    lt = aerdatafh.readline()
+
+    if (version == 'V2'):
+        EVT_DVS = 0  # DVS event type
+        EVT_APS = 1  # APS event
+
+        aeLen = 8  # 1 AE event takes 8 bytes
+        readMode = '>II'  # struct.unpack(), 2x ulong, 4B+4B
+        td = 0.000001  # timestep is 1us
+
+        if(camera == 'DAVIS240'):  # values take from scripts/matlab/getDVS*.m
+            xmask = 0x003ff000
+            xshift = 12
+            ymask = 0x7fc00000
+            yshift = 22
+            pmask = 0x800
+            pshift = 11
+            eventtypeshift = 31
+            ADCmask = 0x000003ff # 0000 0000 0000 0000 0000 0011 1111 1111
+            ADCshift = 0
+            APSreadmask = 0x00000c00 # 0000 0000 0000 0000 0000 1100 0000 0000
+            APSreadshift = 10
+            sx=240
+            sy=180
+        else:
+            raise ValueError("Unsupported camera: %s only camera DAVIS240 supported" % (camera))
+
+        aerdatafh = open(datafile, 'rb')
+        k = 0  # line number
+        p = 0  # pointer, position on bytes
+        statinfo = os.stat(datafile)
+        if length == 0:
+            length = statinfo.st_size
+        # print ("file size", length)
+        # header
+        lt = aerdatafh.readline()
+        while lt.startswith(b'#'):
+            p += len(lt)
+            k += 1
+            lt = aerdatafh.readline()
+            if debug >= 2:
+                print(str(lt))
+            continue
+
+        # variables to parse
+        if ('dvs'in datatype):
+            print('data type: DVS')
+            timestamps_dvs = []
+            xaddr_dvs = []
+            yaddr_dvs = []
+            pol_dvs = []
+        if ('aps' in datatype):
+            print('data type: APS')
+            frame = np.zeros([sy,sx])
+            frames = []
+            timestamp_aps = []
+        # read data-part of file
+        aerdatafh.seek(p)
+        s = aerdatafh.read(aeLen)
+        p += aeLen
+
+        while p < length:
+            #print("p: {} length: {}".format(p,length))
+            addr, ts = struct.unpack(readMode, s)
+            # parse event type
+            eventtype = (addr >> eventtypeshift)
+            # parse event's data
+            if(eventtype == EVT_DVS) and ('dvs'in datatype):  # this is a DVS event
+                x_addr = (addr & xmask) >> xshift
+                y_addr = (addr & ymask) >> yshift
+                a_pol = (addr & pmask) >> pshift
+                if debug >= 3:
+                    print("ts->", ts)  # ok
+                    print("x-> ", x_addr)
+                    print("y-> ", y_addr)
+                    print("pol->", a_pol)
+                # Set the coordinate (0,0) at the bottom left corner:
+                # NOTE: jAER orgin is at the bottom right corner.
+                xaddr_dvs.append(240 - x_addr -1)
+                yaddr_dvs.append(y_addr)
+                # Set the timestamps according to the specified units
+                if unit == 'us':
+                    timestamps_dvs.append(ts)
+                elif unit == 'ms':
+                    timestamps_dvs.append(ts / 1000)
+                elif unit == 'sec':
+                    timestamps_dvs.append(ts / 1e6)
+                else:
+                    raise ValueError(
+                        "Units not supported. Please select one of these: us, ms, sec")
+                pol_dvs.append(a_pol)
+
+            # parse event's data
+            if(eventtype == EVT_APS) and ('aps'in datatype):
+
+                x_addr = (addr & xmask) >> xshift
+                y_addr = (addr & ymask) >> yshift
+
+                ADC_value = (addr & ADCmask) >> ADCshift
+                APSread = (addr & APSreadmask) >> APSreadshift
+
+                frame[int(y_addr), int(x_addr)] = ADC_value
+
+                if (x_addr == sx-1) and (y_addr ==  sy-1) and (APSread==1):
+                    min_val=np.min(frame)
+                    frames.append(np.floor((frame-min_val)/255.0))
+                    timestamp_aps.append(ts)
+                    frame = np.zeros([sy,sx])
+                if debug >= 3:
+                    print("x_addr->", x_addr)
+                    print("y_addr-> ", y_addr)
+                    print("ADC_value-> ", ADC_value)
+                    print("APSread->",APSread)
+                    print("-----------------------------------reset image!!")
+
+            aerdatafh.seek(p)
+            s = aerdatafh.read(aeLen)
+            p += aeLen
+        if debug > 0:
+            try:
+                print("read %i (~ %.2fM) AE events, duration= %.2fs" % (len(timestamps_dvs), len(
+                    timestamps_dvs) / float(10 ** 6), (timestamps_dvs[-1] - timestamps_dvs[0]) * td))
+                n = 5
+                print("showing first %i:" % (n))
+                print("timestamps: %s \nX-addr: %s\nY-addr: %s\npolarity: %s" %
+                      (timestamps_dvs[0:n], xaddr_dvs[0:n], yaddr_dvs[0:n], pol_dvs[0:n]))
+            except:
+                print("failed to print statistics")
+
+        print("finish extraction!")
+        output = {}
+        if ('dvs'in datatype):
+            # Set the coordinate (0,0) at the upper left corner:
+            # NOTE: jAER orgin is at the bottom right corner.
+            events = np.zeros([4, len(timestamps_dvs)])
+            events[0, :] = xaddr_dvs
+            events[1, :] = yaddr_dvs
+            events[2, :] = timestamps_dvs
+            events[3, :] = pol_dvs
+            if debug >= 3:
+                print("events->", events.shape)  # ok
+            if len(datatype)==1 or len(datatype)==3: #works for datatype=['dvs'] or 'dvs'
+                return events
+            else:
+                output['dvs']=events
+        if ('aps'in datatype):
+            aps = frames
+            if len(datatype)==1 or len(datatype)==3: #works for datatype=['aps'] or 'aps'
+                return [aps,timestamp_aps]
+            else:
+                output['aps']=[aps,timestamp_aps]
+                #output['timestamp_aps']=timestamp_aps
+
+        return output
+    else:
+        print('Supported only verison format V2')
+        return
 
 def dvs2ind(events=None, event_directory=None, resolution='DAVIS240', scale=True):
     """Function which converts events extracted from an aedat file using aedat2numpy
