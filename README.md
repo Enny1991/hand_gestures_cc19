@@ -3,14 +3,14 @@
 DATASET available at the link (...)
 
 
-DATASET STRUCTURE:
+Dataset structure:
 
 EMG and DVS recordings
 - 10 subjects
 - 3 sessions for each subject
 - 5 gestures in each session ('pinky', 'elle', 'yo', 'index', 'thumb')
 
-Data name:
+Data names:
 
 subjectXX_sessionYY_ZZZ
 - XX : [01, 02, 03, 04, 05, 06, 07, 08, 09, 10] 
@@ -24,14 +24,14 @@ Data format:
 - dvs: .aedat,.npy
 - davis: .aedat,.mat,.npz
 
-DVS
+**DVS**
 
 DVS recordings only contain DVS events
 - .aedat (raw data): can be imported in Matlab using (https://github.com/inivation/AedatTools/tree/master/Matlab) or in Python with function aedat2numpy in converter.py (https://github.com/Enny1991/hand_gestures_cc19/tree/master/jAER_utils).
 - .npy (exported data): numpy.ndarray [xpos, ypos, ts, pol], 2D numpy array containing data of all events, timestamps ts reset to the trigger event (synchronized with the myo), timestamps ts in seconds.
 
  
-DAVIS
+**DAVIS**
 
 DAVIS recordings contain DVS events and APS frames.
 - .aedat (raw data): can be imported in Matlab using (https://github.com/inivation/AedatTools/tree/master/Matlab) or in Python with function DAVISaedat2numpy in converter.py (https://github.com/Enny1991/hand_gestures_cc19/tree/master/jAER_utils).
