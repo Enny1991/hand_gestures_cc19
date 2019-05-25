@@ -1,24 +1,27 @@
 # hand_gestures_cc19
 
-DATASET available at the link []
+DATASET available at the link (...)
+
 
 DATASET STRUCTURE:
+
 EMG and DVS recordings
-10 subjects
-3 sessions for each subject
-5 gestures in each session ('pinky', 'elle', 'yo', 'index', 'thumb')
+- 10 subjects
+- 3 sessions for each subject
+- 5 gestures in each session ('pinky', 'elle', 'yo', 'index', 'thumb')
 
 Data name:
+
 subjectXX_sessionYY_ZZZ
-XX : [01, 02, 03, 04, 05, 06, 07, 08, 09, 10] 
-YY : [01, 02, 03]
-ZZZ : [emg, ann, dvs, davis]
+- XX : [01, 02, 03, 04, 05, 06, 07, 08, 09, 10] 
+- YY : [01, 02, 03]
+- ZZZ : [emg, ann, dvs, davis]
 
 Data format:
-emg: .npy
-ann: .npy
-dvs: .aedat,.npy
-davis: .aedat,.mat,.npz
+- emg: .npy
+- ann: .npy
+- dvs: .aedat,.npy
+- davis: .aedat,.mat,.npz
 
 DVS
 DVS recordings only contain DVS events
