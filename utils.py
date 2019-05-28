@@ -5,6 +5,16 @@ from scipy.signal import butter, lfilter, welch, square
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
 
+
+def train_svm_single(x_train, y_train, kernel='linear', save_path=None):
+    clf = SVC(gamma='auto', kernel=kernel)
+    clf.fit(x_train, y_train)
+    _acc_train = clf.score(x_train, y_train)
+    if save_path is not None:
+        clf.save(save_path)
+    return _acc_train, clf
+
+
 def do_tc_single(x_train, y_train, x_test, y_test, kernel='linear'):
     clf = SVC(gamma='auto', kernel=kernel)
     clf.fit(x_train, y_train)
