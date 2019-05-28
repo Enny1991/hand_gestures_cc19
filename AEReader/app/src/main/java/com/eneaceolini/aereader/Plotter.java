@@ -50,9 +50,9 @@ public class Plotter extends Activity {
     private int nowGraphIndex = 3;
     private static int nowGraphIndexIMU = 0;
 
-    private ArrayList<Number> f0, f1, f2, f3, f4, f5;
+    private ArrayList<Number> f0, f1, f2;
 
-    private static boolean[] featuresSelected = new boolean[]{true, true, true, true, true, true};
+    private static boolean[] featuresSelected = new boolean[]{true, true, true};
 
     private int w, x, y, z;
     private double pitch, roll, yaw;
@@ -99,12 +99,12 @@ public class Plotter extends Activity {
         yAxis.setDrawLabels(false);
 
         twoDimArray featemg = new twoDimArray();
-        featemg.createMatrix(6, 8);
+        featemg.createMatrix(3, 8);
 
         this.setCurrentTab(1);
 
         for(int i=0; i<8; i++){
-            for (int j=0;j<6;j++){
+            for (int j=0;j<3;j++){
                 featemg.setMatrixValue(j, i, 128);
             }
         }
@@ -112,13 +112,13 @@ public class Plotter extends Activity {
         this.pushFeaturePlotter(featemg);
 
         for(int i=0; i<8; i++){
-            for (int j=0;j<6;j++){
+            for (int j=0;j<3;j++){
                 featemg.setMatrixValue(j, i, 0);
             }
         }
 
         this.pushFeaturePlotter(featemg);
-
+        Log.d("PLOTTER", "INIT");
 //        this.setCurrentTab(0);
 
     }
@@ -355,9 +355,9 @@ public class Plotter extends Activity {
                     f0 = featureData.getInnerArray(0);
                     f1 = featureData.getInnerArray(1);
                     f2 = featureData.getInnerArray(2);
-                    f3 = featureData.getInnerArray(3);
-                    f4 = featureData.getInnerArray(4);
-                    f5 = featureData.getInnerArray(5);
+//                    f3 = featureData.getInnerArray(3);
+//                    f4 = featureData.getInnerArray(4);
+//                    f5 = featureData.getInnerArray(5);
 
                     ArrayList<RadarEntry> entries0 = new ArrayList<RadarEntry>();
                     ArrayList<RadarEntry> entries1 = new ArrayList<RadarEntry>();
@@ -371,9 +371,9 @@ public class Plotter extends Activity {
                         entries0.add(new RadarEntry(setMaxValue(f0.get(i).floatValue() * 200)));
                         entries1.add(new RadarEntry(setMaxValue(f1.get(i).floatValue() * 200)));
                         entries2.add(new RadarEntry(setMaxValue(f2.get(i).floatValue() * 200)));
-                        entries3.add(new RadarEntry(setMaxValue(f3.get(i).floatValue() * 170)));
-                        entries4.add(new RadarEntry(setMaxValue(f4.get(i).floatValue() * 200)));
-                        entries5.add(new RadarEntry(setMaxValue(f5.get(i).floatValue() * 200)));
+//                        entries3.add(new RadarEntry(setMaxValue(f3.get(i).floatValue() * 170)));
+//                        entries4.add(new RadarEntry(setMaxValue(f4.get(i).floatValue() * 200)));
+//                        entries5.add(new RadarEntry(setMaxValue(f5.get(i).floatValue() * 200)));
 
 //                        Log.d("asdfadsf", String.valueOf(f3.get(i)));
                     }
@@ -387,40 +387,40 @@ public class Plotter extends Activity {
                     set0.setFillAlpha(180);
                     set0.setLineWidth(2f);
 
-                    RadarDataSet set1 = new RadarDataSet(entries1, "WAV");
+                    RadarDataSet set1 = new RadarDataSet(entries1, "RMS");
                     set1.setColor(Color.rgb(241, 148, 138));
                     set1.setFillColor(Color.rgb(205, 97, 85));
                     set1.setDrawFilled(true);
                     set1.setFillAlpha(180);
                     set1.setLineWidth(2f);
 
-                    RadarDataSet set2 = new RadarDataSet(entries2, "Turns");
+                    RadarDataSet set2 = new RadarDataSet(entries2, "SD");
                     set2.setColor(Color.rgb(175, 122, 197));
                     set2.setFillColor(Color.rgb(165, 105, 189));
                     set2.setDrawFilled(true);
                     set2.setFillAlpha(180);
                     set2.setLineWidth(2f);
 
-                    RadarDataSet set3 = new RadarDataSet(entries3, "Zeros");
-                    set3.setColor(Color.rgb(125, 206, 160));
-                    set3.setFillColor(Color.rgb(171, 235, 198));
-                    set3.setDrawFilled(true);
-                    set3.setFillAlpha(180);
-                    set3.setLineWidth(2f);
-
-                    RadarDataSet set4 = new RadarDataSet(entries4, "SMAV");
-                    set4.setColor(Color.rgb(39, 55, 70));
-                    set4.setFillColor(Color.rgb(93, 109, 126));
-                    set4.setDrawFilled(true);
-                    set4.setFillAlpha(180);
-                    set4.setLineWidth(2f);
-
-                    RadarDataSet set5 = new RadarDataSet(entries5, "AdjUnique");
-                    set5.setColor(Color.rgb(10, 100, 126)); // 100 50 70
-                    set5.setFillColor(Color.rgb(64, 154, 180));
-                    set5.setDrawFilled(true);
-                    set5.setFillAlpha(180);
-                    set5.setLineWidth(2f);
+//                    RadarDataSet set3 = new RadarDataSet(entries3, "Zeros");
+//                    set3.setColor(Color.rgb(125, 206, 160));
+//                    set3.setFillColor(Color.rgb(171, 235, 198));
+//                    set3.setDrawFilled(true);
+//                    set3.setFillAlpha(180);
+//                    set3.setLineWidth(2f);
+//
+//                    RadarDataSet set4 = new RadarDataSet(entries4, "SMAV");
+//                    set4.setColor(Color.rgb(39, 55, 70));
+//                    set4.setFillColor(Color.rgb(93, 109, 126));
+//                    set4.setDrawFilled(true);
+//                    set4.setFillAlpha(180);
+//                    set4.setLineWidth(2f);
+//
+//                    RadarDataSet set5 = new RadarDataSet(entries5, "AdjUnique");
+//                    set5.setColor(Color.rgb(10, 100, 126)); // 100 50 70
+//                    set5.setFillColor(Color.rgb(64, 154, 180));
+//                    set5.setDrawFilled(true);
+//                    set5.setFillAlpha(180);
+//                    set5.setLineWidth(2f);
 
                     if (featuresSelected[0])
                         sets.add(set0);
@@ -428,12 +428,12 @@ public class Plotter extends Activity {
                         sets.add(set1);
                     if (featuresSelected[2])
                         sets.add(set2);
-                    if (featuresSelected[3])
-                        sets.add(set3);
-                    if (featuresSelected[4])
-                        sets.add(set4);
-                    if (featuresSelected[5])
-                        sets.add(set5);
+//                    if (featuresSelected[3])
+//                        sets.add(set3);
+//                    if (featuresSelected[4])
+//                        sets.add(set4);
+//                    if (featuresSelected[5])
+//                        sets.add(set5);
 
                     //                        set1.setDrawHighlightCircleEnabled(true);
                     //                        set1.setDrawHighlightIndicators(false);

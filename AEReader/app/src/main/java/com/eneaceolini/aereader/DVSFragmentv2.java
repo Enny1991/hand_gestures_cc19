@@ -15,6 +15,7 @@ import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.SurfaceView;
 import android.view.View;
@@ -30,6 +31,7 @@ import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.CvException;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -37,6 +39,7 @@ import org.opencv.core.MatOfFloat;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.imgproc.Moments;
 import org.opencv.objdetect.HOGDescriptor;
 
 import java.util.ArrayList;
@@ -66,6 +69,7 @@ public class DVSFragmentv2 extends Fragment{
     private static final String BIAS_FAST = "Fast";
     private static final String BIAS_SLOW = "Slow";
 
+
     // opencv stuff
     BlockingQueue<ArrayList> blockingQueue = new LinkedBlockingDeque<>();
 
@@ -88,6 +92,7 @@ public class DVSFragmentv2 extends Fragment{
     @Override
     public void onPause() {
         super.onPause();
+        if (null != handler)
             handler.removeCallbacks(runnable);
     }
 
@@ -298,20 +303,24 @@ public class DVSFragmentv2 extends Fragment{
     long lastTime = System.currentTimeMillis();
 
     public Bitmap onCameraFrame() {
-        Log.d("Frame rate", "" + 1000 / (System.currentTimeMillis() - lastTime));
         lastTime = System.currentTimeMillis();
         Bitmap map = null;
+        Mat frame = null;
         ArrayList<DVS128Processor.DVS128Event> toDraw;
         if (null != readEvents) {
             synchronized (this) {
                 try {
                     if (blockingQueue.size() > 0) {
                         toDraw = blockingQueue.take();
-                        Log.d("QUEUE SIZE", "" + blockingQueue.size());
                         if (toDraw.size() > 0)
-                            Log.d("--Delta", "" + (toDraw.get(toDraw.size() - 1).ts - toDraw.get(0).ts));
+                        frame = fillMat(toDraw, 128, 128);
 
-                        map = mat2Bit(fillMat(toDraw, 128, 128));
+                        if (null != frame) {
+                            map = mat2Bit(frame);
+                            // extract HOG
+//                            double[] feat = exportImgFeatures(frame);
+//                            Log.d("HOG", "" + feat.length);
+                        }
 
                     }
                 } catch (InterruptedException e) {
@@ -319,13 +328,31 @@ public class DVSFragmentv2 extends Fragment{
                 }
             }
         }
+
+
+
         return map;
+    }
+
+    public synchronized Pair<Integer, Integer> findCenter(Mat frame){
+        Mat gray = new Mat();
+        Mat blurred = new Mat();
+        Mat thresh = new Mat();
+
+        Imgproc.cvtColor(frame, gray, Imgproc.COLOR_RGB2GRAY);
+        Imgproc.GaussianBlur(gray, blurred, new Size(5, 5), 0d);
+        Imgproc.threshold(blurred, thresh, 60d, 255, Imgproc.THRESH_BINARY);
+
+        Moments moments = Imgproc.moments(thresh);
+        return new Pair<>((int) (moments.m10 / moments.m00), (int) (moments.m01 / moments.m00));
+
     }
 
     public synchronized Mat fillMat(ArrayList<DVS128Processor.DVS128Event> events, int height, int width){
         DVS128Processor.DVS128Event e;
         int r;
         int g;
+        int b;
         Mat mat = new Mat(height, width, CvType.CV_8UC4);
         for(int i = 0; i < height; i++){
             for(int j = 0; j < width; j++){
@@ -337,20 +364,42 @@ public class DVSFragmentv2 extends Fragment{
             e = events.get(i);
             if (null != e) {
                 if (e.polarity > 0) {
+                    // magenta
                     r = 255;
-                    g = 10;
+                    g = 0;
+                    b = 255;
                 } else {
-                    r = 10;
+                    // blu
+                    r = 0;
                     g = 255;
+                    b = 255;
                 }
 //                for (int j = 0; j < 4; j++) {
 //                    for (int k = 0; k < 4; k++) {
 //                        mat.put(e.x * 4 + j, e.y * 4 + k, r, g, 10, 255);
-                        mat.put(e.y, 127 - e.x, r, g, 10, 255);
+                        mat.put(127 - e.y, 127 - e.x, r, g, b, 255);
 //                    }
 //                }
             }
         }
+
+        // find center
+        Pair<Integer, Integer> center = findCenter(mat);
+        int cX = center.first;
+        int cY = center.second;
+        int k = 60;
+        int rc = 237, gc=255, bc=33;
+        if (cX > 61 && cY > 61) {
+            for (int i = 0; i < k; i++) {
+                mat.put(cX - k / 2 + i, cY - k / 2, rc, gc, bc, 255);
+                mat.put(cX - k / 2, cY - k / 2 + i, rc, gc, bc, 255);
+                mat.put(cX - k / 2 + i, cY + k / 2, rc, gc, bc, 255);
+                mat.put(cX + k / 2, cY - k / 2 + i, rc, gc, bc, 255);
+            }
+        }
+
+//        Mat toProc = mat.su
+
         return mat;
     }
 
@@ -359,19 +408,12 @@ public class DVSFragmentv2 extends Fragment{
         Mat mat = new Mat();
 
         Imgproc.cvtColor(frame, mat, Imgproc.COLOR_RGB2GRAY);
-        Log.d("FRAME", "" + frame.type());
-        Log.d("MAT", "" + mat.type());
-//        for (int i = 0; i < rows; i++) {
-//            for (int j = 0; j < cols; j++) {
-//                mat.put(i, j, data[i * cols + j]);
-//            }
-//        }
 
         HOGDescriptor hog = new HOGDescriptor(
-                new Size(28, 28), //winSize
-                new Size(14, 14), //blocksize
-                new Size(7, 7), //blockStride,
-                new Size(14, 14), //cellSize,
+                new Size(32, 32), //winSize
+                new Size(16, 16), //blocksize
+                new Size(8, 8), //blockStride,
+                new Size(8, 8), //cellSize,
                 9); //nbins
 
         MatOfFloat descriptors = new MatOfFloat();
@@ -399,6 +441,6 @@ public class DVSFragmentv2 extends Fragment{
             imageView.setImageBitmap(ima2);
         }
 
-        handler.postDelayed(runnable, 5);
+        handler.postDelayed(runnable, 30);
     }
 }

@@ -1,2 +1,17 @@
 data/*
 .ipynb_checkpoints/*
+
+*.pkl
+
+__pycache__/
+
+*.npy
+
+AEReader/OpenCV4/*
+AEReader/HoloGraphLibrary/*
+AEReader/openCVLibrary346/build/*
+*.pdf
+
+*.csv
+
+*.xml

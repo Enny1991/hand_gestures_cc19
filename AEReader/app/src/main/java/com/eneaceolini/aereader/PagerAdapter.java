@@ -21,17 +21,9 @@ public class PagerAdapter extends FragmentStatePagerAdapter {
                 EmgFragment tab1 = new EmgFragment();
                 return tab1;
             case 1:
+//                DVSPlusEMG tab11 = new DVSPlusEMG();
                 DVSFragmentv2 tab11 = new DVSFragmentv2();
                 return tab11;
-            case 2:
-                FeatureFragment tab2 = new FeatureFragment();
-                return tab2;
-            case 3:
-                ImuFragment tab3 = new ImuFragment();
-                return tab3;
-            case 4:
-                ClassificationFragment tab4 = new ClassificationFragment();
-                return tab4;
             default:
                 return null;
         }

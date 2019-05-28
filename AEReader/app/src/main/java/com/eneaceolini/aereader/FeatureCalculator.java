@@ -23,7 +23,7 @@ import java.util.List;
 public class FeatureCalculator {
     private String TAG = "FeatureCalculator";
     int threshold = 3; //According to Ian using 3 gives better results
-    static int nFeatures = 6;
+    static int nFeatures = 3;
     int nIMUFeatures = 1;
     static int nIMUSensors = 0;
     int nSensors = 8;
@@ -50,7 +50,7 @@ public class FeatureCalculator {
     private Plotter plotter;
     static boolean[] featSelected = {true, true, true, true, true, true};
     static boolean[] imuSelected = {false, false, false, false, false, false, false, false, false, false};
-    int numFeatSelected = 6;
+    int numFeatSelected = 3;
     private static Classifier classifier = new Classifier();
     private static int currentClass = 0;
     public static ArrayList<Integer> classes = new ArrayList<>();
@@ -149,7 +149,6 @@ public class FeatureCalculator {
     }
 
     public void pushFeatureBuffer(byte[] dataBytes) { //actively accepts single EMG arrays and runs calculations when window is reached
-        Log.d("FEAT", "" + dataBytes.length);
         // System.out.println(samplesClassifier.size());
         sendWindow = ArrayUtils.addAll(sendWindow, dataBytes);
 
@@ -247,7 +246,7 @@ public class FeatureCalculator {
         // Count total EMG features to send
 
         int emgct = numFeatSelected * 8;
-        numFeatSelected = 6; //Resets the number of features selected to 6
+        numFeatSelected = 3; //Resets the number of features selected to 6
 
         ArrayList<Number> temp = new ArrayList<Number>(emgct);
         DataVector dvec1 = null;
@@ -287,12 +286,12 @@ public class FeatureCalculator {
                 }
                 temp1Index++;
             }
-            for (int i = 0; i < nIMUFeatures; i++) {
-                for (int j = 0; j < nDimensions; j++) {
-                    temp1.add(k, imuFeatureVector.getMatrixValue(i, j));
-                    k++;
-                }
-            }
+//            for (int i = 0; i < nIMUFeatures; i++) {
+//                for (int j = 0; j < nDimensions; j++) {
+//                    temp1.add(k, imuFeatureVector.getMatrixValue(i, j));
+//                    k++;
+//                }
+//            }
 
             dvec1 = new DataVector(true, 0, temp.size(), temp1, 0000000);
         }
@@ -304,6 +303,56 @@ public class FeatureCalculator {
     }
 
     private twoDimArray featCalc(ArrayList<DataVector> samplebuf) {
+
+        int j, k;
+
+        featemg = new twoDimArray();
+        featemg.createMatrix(3, nSensors);
+
+        //for each sensor calculate features
+        for (int sensor = 0; sensor < nSensors; sensor++) {//loop through each EMG pod (8)
+            k = (firstCall + bufsize - 1) % bufsize;    //one before window start   // (41 - 40 + 1 = 2) - 1
+
+            float mean = 0;
+            float absSum = 0;
+            float sqSum = 0;
+            float sample;
+            for (int i = 0; i < (winsize); i++){
+                j = k;                 //prev     //1 - 40
+                k = (j + 1) % bufsize; //current  //2 - 41
+                sample = samplebuf.get(k).getVectorData().get(sensor).floatValue();
+                mean += sample;
+                absSum += Math.abs(sample);
+                sqSum += Math.pow(sample, 2);
+            }
+
+            featemg.setMatrixValue(0, sensor, absSum / winsize);
+            featemg.setMatrixValue(1, sensor, (float) Math.sqrt(sqSum / winsize));
+
+            k = (firstCall + bufsize - 1) % bufsize;    //one before window start   // (41 - 40 + 1 = 2) - 1
+            for (int i = 0; i < (winsize); i++){
+                j = k;                 //prev     //1 - 40
+                k = (j + 1) % bufsize; //current  //2 - 41
+                sample = samplebuf.get(k).getVectorData().get(sensor).floatValue();
+
+                sqSum += Math.pow(sample - mean, 2);
+            }
+
+            featemg.setMatrixValue(2, sensor, (float) Math.sqrt(sqSum / winsize));
+
+            if (sensor == (nSensors - 1)) {//don't want to use all
+                plotter.pushFeaturePlotter(featemg);
+            }
+
+        }
+
+
+
+
+        return featemg;
+    }
+
+    private twoDimArray featCalcv2(ArrayList<DataVector> sampleBuf) {
         ArrayList<ArrayList<Float>> AUMatrix = new ArrayList<>();
         byte signLast;
         byte slopLast;
@@ -313,7 +362,7 @@ public class FeatureCalculator {
         float MMAV = 0;
 
         featemg = new twoDimArray();
-        featemg.createMatrix(6, nSensors);
+        featemg.createMatrix(3, nSensors);
 
         //for each sensor calculate features
         for (int sensor = 0; sensor < nSensors; sensor++) {//loop through each EMG pod (8)
@@ -325,7 +374,7 @@ public class FeatureCalculator {
             slopLast = 0;
 
             //Some threshold for zero crossings and slope changes
-            Delta_2 = samplebuf.get(k).getVectorData().get(sensor).floatValue() - samplebuf.get(j).getVectorData().get(sensor).floatValue(); //index out of bounds exception
+            Delta_2 = sampleBuf.get(k).getVectorData().get(sensor).floatValue() - sampleBuf.get(j).getVectorData().get(sensor).floatValue(); //index out of bounds exception
 
             if (Delta_2 > threshold) {
                 slopLast += 4;
@@ -335,10 +384,10 @@ public class FeatureCalculator {
             }
 
             //Beginning of Window???
-            if (samplebuf.get(j).getVectorData().get(sensor).floatValue() > threshold) {
+            if (sampleBuf.get(j).getVectorData().get(sensor).floatValue() > threshold) {
                 signLast = 4;
             } //Set to a high value?
-            if (samplebuf.get(j).getVectorData().get(sensor).floatValue() < -threshold) {
+            if (sampleBuf.get(j).getVectorData().get(sensor).floatValue() < -threshold) {
                 signLast = 8;
             }//set to a low value?
 
@@ -347,12 +396,12 @@ public class FeatureCalculator {
                 j = k;                 //prev     //1 - 40
                 k = (j + 1) % bufsize; //current  //2 - 41
 
-                Delta_2 = samplebuf.get(k).getVectorData().get(sensor).floatValue() - samplebuf.get(j).getVectorData().get(sensor).floatValue();
+                Delta_2 = sampleBuf.get(k).getVectorData().get(sensor).floatValue() - sampleBuf.get(j).getVectorData().get(sensor).floatValue();
 
-                if (samplebuf.get(k).getVectorData().get(sensor).floatValue() > threshold) {
+                if (sampleBuf.get(k).getVectorData().get(sensor).floatValue() > threshold) {
                     signLast += 1;
                 }
-                if (samplebuf.get(k).getVectorData().get(sensor).floatValue() < -threshold) {
+                if (sampleBuf.get(k).getVectorData().get(sensor).floatValue() < -threshold) {
                     signLast += 2;
                 }
                 if (Delta_2 > threshold) {
@@ -371,9 +420,9 @@ public class FeatureCalculator {
                 signLast = (byte) ((byte) (signLast << 2) & (byte) 15);
                 slopLast = (byte) ((byte) (slopLast << 2) & (byte) 15);
 
-                featemg.setMatrixValue(0, sensor, featemg.getMatrixValue(0, sensor) + Math.abs(samplebuf.get(k).getVectorData().get(sensor).floatValue()));
+                featemg.setMatrixValue(0, sensor, featemg.getMatrixValue(0, sensor) + Math.abs(sampleBuf.get(k).getVectorData().get(sensor).floatValue()));
                 featemg.setMatrixValue(1, sensor, featemg.getMatrixValue(1, sensor) + (float) Math.abs(Delta_2));
-                tempAU.add(samplebuf.get(k).getVectorData().get(sensor).floatValue());
+                tempAU.add(sampleBuf.get(k).getVectorData().get(sensor).floatValue());
             }
 
             featemg.setMatrixValue(0, sensor, featemg.getMatrixValue(0, sensor) / winsize);

@@ -1,8 +1,0 @@
-<resources>
-    <string name="app_name">AEReader</string>
-    <string name="action_settings">Settings</string>
-    <string-array name="dvs_bias">
-        <item>Fast</item>
-        <item>Slow</item>
-    </string-array>
-</resources>

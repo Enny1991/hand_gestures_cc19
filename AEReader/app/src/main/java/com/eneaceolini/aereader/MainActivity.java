@@ -89,8 +89,8 @@ public class MainActivity extends AppCompatActivity {
 
         tabLayout.addTab(EMGTab, 0, true);
         tabLayout.addTab(FeatureTab, 1, true);
-        tabLayout.addTab(IMUTab, 2, true);
-        tabLayout.addTab(ClassificationTab, 3, true);
+//        tabLayout.addTab(IMUTab, 2, true);
+//        tabLayout.addTab(ClassificationTab, 3, true);
 
 
         tabLayout.setupWithViewPager(mViewPager);

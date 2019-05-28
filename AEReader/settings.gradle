@@ -1,3 +1,2 @@
-include ':app', ':HoloGraphLibrary'
-include ':OpenCV4'
+include ':app'
 include ':openCVLibrary346'

@@ -60,7 +60,7 @@ public class ReadEvents extends Thread {
     public int height, width;
     private BlockingQueue<ArrayList> blockingQueue;
     private long globalClock = 0L;
-    private int frameLength = 100; // ms
+    private int frameLength = 200; // ms
 
     ReadEvents(Context context,
                UsbDevice device,
@@ -79,9 +79,11 @@ public class ReadEvents extends Thread {
     @Override
     public final void run() {
         init();
-        connection.controlTransfer(0, 0xb3, 1, 0, null, 0, 0);
-        connection.controlTransfer(0, 0xbb, 1, 0, null, 0, 0);
-
+        int first = connection.controlTransfer(0, 0xb3, 1, 0, null, 0, 0);
+//        int second = connection.controlTransfer(0, 0xbb, 1, 0, null, 0, 0);
+        Log.d("Initiated", "Transfer");
+        Log.d("FIRST", "" + first);
+//        Log.d("SECOND", "" + second);
         int c;
         ArrayList<DVS128Processor.DVS128Event> events;
         ArrayList<DVS128Processor.DVS128Event> toPush = new ArrayList<>();
@@ -89,7 +91,9 @@ public class ReadEvents extends Thread {
         while (!STOP) {
             synchronized (this) {
                 usbData = new byte[dataEndpoint.getMaxPacketSize()];
+//                usbData = new byte[128];
                 c = connection.bulkTransfer(dataEndpoint, usbData, usbData.length, 0);
+
                 if (c > 0) {
                     events = processor.process(usbData, c);
                     if (events.size() > 0) {
@@ -100,6 +104,7 @@ public class ReadEvents extends Thread {
                                     blockingQueue.put(toPush);
                                     globalClock = System.currentTimeMillis();
                                     toPush= new ArrayList<>();
+
                                 } catch (InterruptedException ex) {
                                     Log.d("INTERRUPTED", "Had to DROP");
                                 }

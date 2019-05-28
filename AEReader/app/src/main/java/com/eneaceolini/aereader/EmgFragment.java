@@ -138,38 +138,6 @@ public class EmgFragment extends Fragment implements View.OnClickListener {
                 }
             }
 
-
-//        IntentFilter filter = new IntentFilter(mBluetoothAdapter.ACTION_STATE_CHANGED);
-//        getActivity().registerReceiver(mReceiver, filter);
-
-
-            /*if (MyoGattCallback.myoConnected == null) {
-
-                Toast.makeText(getContext(), "OUTSIDE'", Toast.LENGTH_LONG).show();
-
-                Toast.makeText(getContext(), "On the top right corner, select 'Connect'", Toast.LENGTH_LONG).show();
-
-                AlertDialog alertDialog = new AlertDialog.Builder(getActivity()).create();
-                alertDialog.setTitle("Myo not detected");
-                alertDialog.setMessage("Myo armband should be connected before training gestures.");
-                alertDialog.setIcon(R.drawable.stop_icon);
-
-                alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        Toast.makeText(getContext(), "On the top right corner, select 'Connect'", Toast.LENGTH_LONG).show();
-                    }
-                });
-
-                alertDialog.show();
-
-            } else {
-                Toast.makeText(getContext(), "HEY", Toast.LENGTH_LONG).show();
-
-
-
-            }*/
-
-
             emgButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -275,34 +243,27 @@ public class EmgFragment extends Fragment implements View.OnClickListener {
                 if (color == Color.rgb(89, 140, 175)) {
                     Log.d("Clicked on ", "blue");
                     plotter.setEMG(color, 2);
-//                    plotter.addEntry((float) Math.random() * 2f, 2);
                 } else if (color == Color.rgb(100, 169, 95)) {
                     Log.d("Clicked on ", "green");
                     plotter.setEMG(color, 1);
-//                    plotter.addEntry((float) Math.random() * 1f, 1);
                 } else if (color == Color.rgb(169, 95, 95)) {
                     Log.d("Clicked on ", "clay");
                     plotter.setEMG(color, 0);
                 } else if (color == Color.rgb(189, 75, 167)) {
                     Log.d("Clicked on ", "magenta");
                     plotter.setEMG(color, 7);
-//                    plotter.addEntry((float) Math.random() * 7f, 7);
                 } else if (color == Color.rgb(171, 89, 43)) {
                     Log.d("Clicked on ", "brown");
                     plotter.setEMG(color, 6);
-//                    plotter.addEntry((float) Math.random() * 6f, 6);
                 } else if (color == Color.rgb(94, 62, 130)) {
                     Log.d("Clicked on ", "purple");
                     plotter.setEMG(color, 5);
-//                    plotter.addEntry((float) Math.random() * 5f, 5);
                 } else if (color == Color.rgb(171, 21, 21)) {
                     Log.d("Clicked on ", "red");
                     plotter.setEMG(color, 4);
-//                    plotter.addEntry((float) Math.random() * 4f, 4);
                 } else if (color == Color.rgb(64, 64, 64) || (color < -12500000 && color > -15800000)) {//gray or the logo color
                     Log.d("Clicked on ", "gray");
                     plotter.setEMG(Color.rgb(64, 64, 64), 3);
-//                    plotter.addEntry((float) Math.random() * 3f, 3);
                 }
                 return true;
             } else {

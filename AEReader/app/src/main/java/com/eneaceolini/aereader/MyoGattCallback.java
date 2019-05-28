@@ -304,7 +304,7 @@ public class MyoGattCallback extends BluetoothGattCallback {
 
 //            thread.send(emg_data_controlled);
 
-            plotter.pushPlotter(emg_data);
+//            plotter.pushPlotter(emg_data);
 
             if (systemTime_ms > last_send_never_sleep_time_ms + NEVER_SLEEP_SEND_TIME) {
                 setMyoControlCommand(commandList.sendUnSleep());
@@ -321,8 +321,8 @@ public class MyoGattCallback extends BluetoothGattCallback {
             fcalc.pushIMUFeatureBuffer(dvec1);
             fcalc.pushIMUFeatureBuffer(dvec2);
 
-            imuFragment = new ImuFragment();
-            imuFragment.sendIMUValues(dvec2);
+//            imuFragment = new ImuFragment();
+//            imuFragment.sendIMUValues(dvec2);
         }
     }
 
