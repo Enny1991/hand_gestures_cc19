@@ -26,7 +26,18 @@ import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 import com.github.mikephil.charting.interfaces.datasets.IRadarDataSet;
 import com.github.mikephil.charting.utils.ColorTemplate;
 
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.ml.SVM;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 
 /**
  * Created by Alex on 6/30/2017.
@@ -57,11 +68,18 @@ public class Plotter extends Activity {
     private int w, x, y, z;
     private double pitch, roll, yaw;
 
+    private SVM svm;
+    private Mat f;
+    private float[] mean, std;
+    BlockingQueue<float[]> blockingQueueEMG = new LinkedBlockingDeque<>();
+    ArrayList<Float> currentEMG = new ArrayList<>();
+
     public Plotter() {
     }
 
-    public Plotter(RadarChart chart) {
-
+    public Plotter(Handler handler, RadarChart chart, ArrayList<Float> queue) {
+        mHandler = handler;
+        currentEMG = queue;
         mChart = chart;
         mHandler = new Handler();
 
@@ -119,8 +137,41 @@ public class Plotter extends Activity {
 
         this.pushFeaturePlotter(featemg);
         Log.d("PLOTTER", "INIT");
-//        this.setCurrentTab(0);
 
+
+    }
+
+    public void setSVM(SVM svm, Mat f, float[] mean, float[] std){
+        this.svm = svm;
+        this.f = f;
+        this.mean = mean;
+        this.std = std;
+        Log.d("emg SVM", "" + svm);
+
+    }
+
+    private File createFileFromInputStream(InputStream inputStream) {
+
+        try{
+            File f = new File(getApplication().getFilesDir().getPath() + "/local_dump_smv.xml");
+            OutputStream outputStream = new FileOutputStream(f);
+            byte buffer[] = new byte[1024];
+            int length = 0;
+
+            while((length=inputStream.read(buffer)) > 0) {
+                outputStream.write(buffer,0,length);
+            }
+
+            outputStream.close();
+            inputStream.close();
+
+            return f;
+        }catch (IOException e) {
+            //Logging exception
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     public Plotter(Handler handler) {
@@ -345,6 +396,8 @@ public class Plotter extends Activity {
     }
 
 
+    long start = System.currentTimeMillis();
+
     public void pushFeaturePlotter(twoDimArray featureData) {
         if (mChart != null && currentTab == 1) {
 //        if (mChart != null) {
@@ -355,28 +408,51 @@ public class Plotter extends Activity {
                     f0 = featureData.getInnerArray(0);
                     f1 = featureData.getInnerArray(1);
                     f2 = featureData.getInnerArray(2);
-//                    f3 = featureData.getInnerArray(3);
-//                    f4 = featureData.getInnerArray(4);
-//                    f5 = featureData.getInnerArray(5);
 
                     ArrayList<RadarEntry> entries0 = new ArrayList<RadarEntry>();
                     ArrayList<RadarEntry> entries1 = new ArrayList<RadarEntry>();
                     ArrayList<RadarEntry> entries2 = new ArrayList<RadarEntry>();
-                    ArrayList<RadarEntry> entries3 = new ArrayList<RadarEntry>();
-                    ArrayList<RadarEntry> entries4 = new ArrayList<RadarEntry>();
-                    ArrayList<RadarEntry> entries5 = new ArrayList<RadarEntry>();
+
+
+                    float[] toPush = new float[24];
 
                     for (int i = 0; i < 8; i++) {
                         //2000 per division 14 000 in total
                         entries0.add(new RadarEntry(setMaxValue(f0.get(i).floatValue() * 200)));
+
                         entries1.add(new RadarEntry(setMaxValue(f1.get(i).floatValue() * 200)));
                         entries2.add(new RadarEntry(setMaxValue(f2.get(i).floatValue() * 200)));
-//                        entries3.add(new RadarEntry(setMaxValue(f3.get(i).floatValue() * 170)));
-//                        entries4.add(new RadarEntry(setMaxValue(f4.get(i).floatValue() * 200)));
-//                        entries5.add(new RadarEntry(setMaxValue(f5.get(i).floatValue() * 200)));
+                        toPush[i] = f0.get(i).floatValue();
+                        toPush[i + 8] = f1.get(i).floatValue();
+                        toPush[i + 16] = f2.get(i).floatValue();
 
-//                        Log.d("asdfadsf", String.valueOf(f3.get(i)));
+//                        if (null != svm) {
+//                            f.put(0, i, (f0.get(i).floatValue() - mean[i]) / std[i]);  // MAV
+//                            f.put(0, i + 8, (f1.get(i).floatValue() - mean[i + 8]) / std[i + 8]);  // RMS
+//                            f.put(0, i + 16, (f2.get(i).floatValue() - mean[i + 16]) / std[i + 16]);  // SD
+//                        }
+
+
                     }
+
+                    for(int i = 0; i < 24; i++)
+                        currentEMG.add(toPush[i]);
+                    Log.d("SIZE PUSH", "" + (System.currentTimeMillis() - start));
+                    start = System.currentTimeMillis();
+
+//                    if (null != svm) {
+//                        float res = svm.predict(f);
+//                        String _class = "None";
+//                        if(res == 0.0) _class = "PINKY";
+//                        if(res == 1.0) _class = "ELLE";
+//                        if(res == 2.0) _class = "YO";
+//                        if(res == 3.0) _class = "INDEX";
+//                        if(res == 4.0) _class = "THUMB";
+//
+//                        Log.d("EMG SVM", "" + _class);
+//                    } else{
+//                        Log.d("SVM", "isnull");
+//                    }
 
                     ArrayList<IRadarDataSet> sets = new ArrayList<IRadarDataSet>();
 
@@ -401,42 +477,12 @@ public class Plotter extends Activity {
                     set2.setFillAlpha(180);
                     set2.setLineWidth(2f);
 
-//                    RadarDataSet set3 = new RadarDataSet(entries3, "Zeros");
-//                    set3.setColor(Color.rgb(125, 206, 160));
-//                    set3.setFillColor(Color.rgb(171, 235, 198));
-//                    set3.setDrawFilled(true);
-//                    set3.setFillAlpha(180);
-//                    set3.setLineWidth(2f);
-//
-//                    RadarDataSet set4 = new RadarDataSet(entries4, "SMAV");
-//                    set4.setColor(Color.rgb(39, 55, 70));
-//                    set4.setFillColor(Color.rgb(93, 109, 126));
-//                    set4.setDrawFilled(true);
-//                    set4.setFillAlpha(180);
-//                    set4.setLineWidth(2f);
-//
-//                    RadarDataSet set5 = new RadarDataSet(entries5, "AdjUnique");
-//                    set5.setColor(Color.rgb(10, 100, 126)); // 100 50 70
-//                    set5.setFillColor(Color.rgb(64, 154, 180));
-//                    set5.setDrawFilled(true);
-//                    set5.setFillAlpha(180);
-//                    set5.setLineWidth(2f);
-
                     if (featuresSelected[0])
                         sets.add(set0);
                     if (featuresSelected[1])
                         sets.add(set1);
                     if (featuresSelected[2])
                         sets.add(set2);
-//                    if (featuresSelected[3])
-//                        sets.add(set3);
-//                    if (featuresSelected[4])
-//                        sets.add(set4);
-//                    if (featuresSelected[5])
-//                        sets.add(set5);
-
-                    //                        set1.setDrawHighlightCircleEnabled(true);
-                    //                        set1.setDrawHighlightIndicators(false);
 
                     if (!sets.isEmpty()) {
                         RadarData data = new RadarData(sets);

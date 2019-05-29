@@ -326,8 +326,8 @@ public class FeatureCalculator {
                 sqSum += Math.pow(sample, 2);
             }
 
-            featemg.setMatrixValue(0, sensor, absSum / winsize);
-            featemg.setMatrixValue(1, sensor, (float) Math.sqrt(sqSum / winsize));
+            featemg.setMatrixValue(0, sensor, absSum / winsize);  // MAV
+            featemg.setMatrixValue(1, sensor, (float) Math.sqrt(sqSum / winsize));  // RMS
 
             k = (firstCall + bufsize - 1) % bufsize;    //one before window start   // (41 - 40 + 1 = 2) - 1
             for (int i = 0; i < (winsize); i++){
@@ -338,15 +338,13 @@ public class FeatureCalculator {
                 sqSum += Math.pow(sample - mean, 2);
             }
 
-            featemg.setMatrixValue(2, sensor, (float) Math.sqrt(sqSum / winsize));
+            featemg.setMatrixValue(2, sensor, (float) Math.sqrt(sqSum / winsize));  // SD
 
             if (sensor == (nSensors - 1)) {//don't want to use all
                 plotter.pushFeaturePlotter(featemg);
             }
 
         }
-
-
 
 
         return featemg;

@@ -220,7 +220,7 @@ public class EmgFragment extends Fragment implements View.OnClickListener {
 
                 // Trying to connect GATT
                 plotter = new Plotter(mHandler, lineChart);
-                mMyoCallback = new MyoGattCallback(mHandler, myoConnectionText, prog, connectingText, plotter, getView());
+                mMyoCallback = new MyoGattCallback(mHandler, myoConnectionText, connectingText, plotter, getView());
                 mBluetoothGatt = device.connectGatt(getActivity(), false, mMyoCallback);
                 mMyoCallback.setBluetoothGatt(mBluetoothGatt);
             }

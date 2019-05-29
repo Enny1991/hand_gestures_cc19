@@ -12,6 +12,8 @@ import android.widget.TextView;
 
 import com.github.mikephil.charting.charts.RadarChart;
 
+import org.opencv.ml.SVM;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -95,7 +97,7 @@ public class FeatureFragment extends Fragment {
 
 
         mChart = (RadarChart) v.findViewById(R.id.chart);
-        plotter = new Plotter(mChart);//must pass chart from this fragment
+        plotter = new Plotter(null, mChart, null);//must pass chart from this fragment
 
         return v;
     }

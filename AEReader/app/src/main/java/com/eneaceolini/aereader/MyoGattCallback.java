@@ -75,12 +75,11 @@ public class MyoGattCallback extends BluetoothGattCallback {
 
     private FeatureCalculator fcalc;//maybe needs to be later in process
 
-    MyoGattCallback(Handler handler, TextView view, ProgressBar prog, TextView connectingText, Plotter plot, View v) {
+    MyoGattCallback(Handler handler, TextView view, TextView connectingText, Plotter plot, View v) {
         mHandler = handler;
         connectingTextView = connectingText;
         textView = view;
         plotter = plot;
-        progress = prog;
         fcalc = new FeatureCalculator(plotter);
 
 //        thread = new ServerCommunicationThread();
@@ -236,8 +235,6 @@ public class MyoGattCallback extends BluetoothGattCallback {
                 public void run() {
                     //textView.setText("" + ListActivity.myoName + " Connected");
                     myoConnected = true;
-                    progress.setVisibility(View.INVISIBLE);
-                    connectingTextView.setVisibility(View.INVISIBLE);
                 }
             });
         } else {
@@ -283,29 +280,9 @@ public class MyoGattCallback extends BluetoothGattCallback {
             byte[] emg_data1 = Arrays.copyOfRange(emg_data,0,8);
             byte[] emg_data2 = Arrays.copyOfRange(emg_data,8,16);
 
-//            fcalc.pushFeatureBuffer(emg_data1);
             fcalc.pushFeatureBuffer(emg_data2);
 
-//            byte cloudControl = 0;
-//            if (fcalc.getClassify()) {
-//                cloudControl = 1;
-//            } else if (fcalc.getTrain()) {
-//                cloudControl = 2;
-//            }
-//            byte[] emg_data_controlled = ArrayUtils.add(emg_data, 0, cloudControl);
-
-//            /*The following can test the tcp latency by sending a timestamp to the server DOES NOT WORK NEED TO IMPLEMENT LAMPORT TIMESTAMPS*/
-//            long currentTime = System.currentTimeMillis();
-//            byte[] bytetime = longToBytes(currentTime);
-//            byte[] guy = new byte[]{0,0,0,0,0,0,0,0,0};
-//            byte[] bytetime17 = ArrayUtils.addAll(bytetime, guy);
-//            System.out.println(currentTime);
-////            System.out.println(Arrays.toString(bytetime17));
-
-//            thread.send(emg_data_controlled);
-
-//            plotter.pushPlotter(emg_data);
-
+//
             if (systemTime_ms > last_send_never_sleep_time_ms + NEVER_SLEEP_SEND_TIME) {
                 setMyoControlCommand(commandList.sendUnSleep());
                 last_send_never_sleep_time_ms = systemTime_ms;
@@ -321,8 +298,6 @@ public class MyoGattCallback extends BluetoothGattCallback {
             fcalc.pushIMUFeatureBuffer(dvec1);
             fcalc.pushIMUFeatureBuffer(dvec2);
 
-//            imuFragment = new ImuFragment();
-//            imuFragment.sendIMUValues(dvec2);
         }
     }
 
