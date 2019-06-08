@@ -4,6 +4,26 @@ from scipy.signal import butter, lfilter, welch, square  #for signal filtering
 from scipy.signal import butter, lfilter, welch, square
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
+import os
+from os import listdir
+
+
+def find_trigger(ts):
+    return np.where(np.diff(ts) < 0)[0][0]
+
+
+def create_frame(x, y, dim=(128, 128)):
+    img = np.zeros(dim)
+    for _x, _y in zip(x.astype('int32'), y.astype('int32')):
+        img[dim[0] - 1 - _x,_y] += 1
+    img /= np.max(img) + 1e-15
+    return np.uint8(img * 255) 
+
+def norm_frame(x):
+    x = np.float32(x)
+    x -= np.min(x, (1, 2), keepdims=True)
+    x /= np.max(x, (1, 2), keepdims=True) + 1e-15
+    return np.uint8(x * 255)
 
 
 def train_svm_single(x_train, y_train, kernel='linear', save_path=None):
@@ -64,7 +84,29 @@ def do_tc_full(x, y, pca_comp=0, shuffle=True, folds=10, verbose=False, avg=Fals
         return np.mean(all_acc_train), np.mean(all_acc_test), np.std(all_acc_train), np.std(all_acc_test)
     else:
         return all_acc_train, all_acc_test
+    
 
+def kfold(x, y, folds=5):
+    
+    n_samples = len(x)
+    
+    idx = np.random.permutation(n_samples)
+    x = x[idx]
+    y = y[idx]
+    
+    split = n_samples // folds
+    FOLDS = []
+
+    for fold in range(folds):
+
+        test_x = x[fold * split: (fold + 1) * split]
+        train_x = np.vstack([x[:split * fold], x[split * (fold + 1):]])
+
+        test_y = y[fold * split: (fold + 1) * split].squeeze()
+        train_y = np.vstack([y[:split * fold], y[split * (fold + 1):]]).squeeze()
+        
+        FOLDS.append([train_x, train_y, test_x, test_y])
+    return FOLDS
 
 
 #Define the filters
@@ -264,11 +306,44 @@ class Person(object):
         self.y = {c: [] for c in classes}
         self.ts = {c: [] for c in classes}
         self.pol = {c: [] for c in classes}
-        self.sift = {c: [] for c in classes}
-        self.surf = {c: [] for c in classes}
+
+        self.frames = {c: [] for c in classes}
+        self.ts_frames = {c: [] for c in classes}
+        self.x_davis = {c: [] for c in classes}
+        self.y_davis = {c: [] for c in classes}
+        self.ts_davis = {c: [] for c in classes}
+        self.pol_davis = {c: [] for c in classes}
         
         self.spk_trials = {c: [] for c in classes}
 #         self.trials = {'rock': [], 'paper': [], 'scissor': []}
 #         self.spk_trials = {'rock': [], 'paper': [], 'scissor': []}
        
-       
+     
+def load_all_emg(data_dir, classes, verbose=False):
+    subjects = {}
+    names = [name for name in listdir(data_dir) if "emg" in name]
+    for name in names:
+        _emg = np.load(data_dir + '{}'.format(name)).astype('float32')
+        _ann = np.concatenate([np.array(['none']), np.load(data_dir + '{}'.format(name.replace("emg","ann")))[:-1]])
+
+        subjects["_".join(name.split("_")[:2])] = Person(name.split("_")[0], _emg, _ann, classes=classes)
+
+        if verbose:
+            print("Loaded {}: EMG = [{}] // ANN = [{}]".format("_".join(name.split("_")[:2]), _emg.shape, len(_ann)))
+    
+
+    # separates data in correct trial type
+    for name, data in subjects.items():
+        for _class in classes:
+            _annotation = np.float32(data.ann == _class)
+            derivative = np.diff(_annotation)/1.0
+            begins = np.where(derivative == 1)[0]
+            ends = np.where(derivative == -1)[0]
+            for b, e in zip(begins, ends):
+                _trials = data.emg[b:e]
+                data.trials[_class].append(_trials)
+                data.begs[_class].append(b)
+                data.ends[_class].append(e)
+                
+    print("Data Loaded! {} Sessions".format(len(subjects.keys())))
+    return subjects

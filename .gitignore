@@ -11,7 +11,9 @@ AEReader/OpenCV4/*
 AEReader/HoloGraphLibrary/*
 AEReader/openCVLibrary346/build/*
 *.pdf
-
 *.csv
-
 *.xml
+*.h5
+*.tflite
+.DS_Store
+figures/*
