@@ -20,7 +20,7 @@ import java.util.List;
  * Created by Alex on 6/19/2017.
  */
 
-public class FeatureCalculator {
+public class FeatureCalculatorv2 {
     private String TAG = "FeatureCalculator";
     int threshold = 3; //According to Ian using 3 gives better results
     static int nFeatures = 3;
@@ -82,25 +82,8 @@ public class FeatureCalculator {
 
     static File predFile;
 
-    public FeatureCalculator() {
-    }
 
-    public FeatureCalculator(View v, Activity act) {
-        classAct = act;
-        view = v;
-        liveView = (TextView) view.findViewById(R.id.gesture_detected);
-        progressBar = (ProgressBar) view.findViewById(R.id.progressBar);
-        uploadButton = (ImageButton) view.findViewById(R.id.im_upload);
-        resetButton = (ImageButton) view.findViewById(R.id.im_reset);
-        trainButton = (ImageButton) v.findViewById(R.id.bt_train);
-
-//        saver = new SaveData(act);
-
-//        predFile = saver.makeFile("predictions");
-//        connect();
-    }
-
-    public FeatureCalculator(Plotter plot) {
+    public FeatureCalculatorv2(Plotter plot) {
         plotter = plot;
     }
 
@@ -550,56 +533,3 @@ public class FeatureCalculator {
 
 }
 
-//Two dimensional array class made to help in the implementation of featEMG
-class twoDimArray {
-
-    //matrix is our featEMG matrix
-    ArrayList<ArrayList<Number>> matrix = new ArrayList<ArrayList<Number>>();
-    int numRow;
-    int numCol;
-
-    //Init matrix to the desired dimensions all with 0
-    //Note: row refers to nFeatures and columns refers to nSensors
-    public void createMatrix(int numRow, int numCol) {
-        this.numRow = numRow;
-        this.numCol = numCol;
-        for (int i = 0; i < numRow; i++) {
-            ArrayList<Number> innerArray = new ArrayList<Number>();
-            matrix.add(innerArray);
-            for (int j = 0; j < numCol; j++) {
-                innerArray.add((float) 0);
-            }
-        }
-    }
-
-    //Get value at specified row and column
-    public float getMatrixValue(int inRow, int inCol) {
-        return matrix.get(inRow).get(inCol).floatValue();
-    }
-
-    //Set value at specified row and column
-    public void setMatrixValue(int numRow, int numCol, float data) {
-        ArrayList<Number> temp;
-        temp = matrix.get(numRow);
-        temp.set(numCol, data);
-        matrix.set(numRow, temp);
-    }
-
-    public ArrayList<DataVector> getDataVector() {
-        ArrayList<DataVector> data = new ArrayList<>();
-        for (int i = 0; i < numRow; i++) {
-            ArrayList<Number> row = this.getInnerArray(i);
-            data.add(new DataVector(0, row.size(), row));
-        }
-        return data;
-    }
-
-    //Return specific ROW
-    public ArrayList<Number> getInnerArray(int inRow) {
-        return matrix.get(inRow);
-    }
-
-    public void addRow(ArrayList inRow) {
-        matrix.add(inRow);
-    }
-}

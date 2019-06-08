@@ -25,7 +25,6 @@ import android.util.Log;
 
 import org.opencv.core.Mat;
 import org.tensorflow.lite.Interpreter;
-
 import org.tensorflow.lite.gpu.GpuDelegate;
 
 import java.io.BufferedReader;
@@ -43,7 +42,7 @@ import java.util.PriorityQueue;
 
 
 /** A classifier specialized to label images using TensorFlow Lite. */
-public abstract class ClassifierTF {
+public abstract class ClassifierFUS {
   private static final Logger LOGGER = new Logger();
 
   /** The model type used for classification. */
@@ -68,7 +67,7 @@ public abstract class ClassifierTF {
   private static final int DIM_PIXEL_SIZE = 1;
 
   /** Preallocated buffers for storing image data in. */
-  private final int[] intValues = new int[getImageSizeX() * getImageSizeY()];
+  private final float[] intValues = new float[getFeatSize()];
 
   /** Options for configuring the Interpreter. */
   private final Interpreter.Options tfliteOptions = new Interpreter.Options();
@@ -97,9 +96,9 @@ public abstract class ClassifierTF {
    * @param numThreads The number of threads to use for classification.
    * @return A classifier with the desired configuration.
    */
-  public static ClassifierTF create(Activity activity, Model model, Device device, int numThreads)
+  public static ClassifierFUS create(Activity activity, Model model, Device device, int numThreads)
       throws IOException {
-      return new ClassifierFloatMobileNet(activity, device, numThreads);
+      return new ClassifierFloatMobileFUS(activity, device, numThreads);
   }
 
   /** An immutable result returned by a Classifier describing what was recognized. */
@@ -173,7 +172,7 @@ public abstract class ClassifierTF {
   }
 
   /** Initializes a {@code Classifier}. */
-  protected ClassifierTF(Activity activity, Device device, int numThreads) throws IOException {
+  protected ClassifierFUS(Activity activity, Device device, int numThreads) throws IOException {
     tfliteModel = loadModelFile(activity);
     switch (device) {
       case NNAPI:
@@ -192,8 +191,7 @@ public abstract class ClassifierTF {
     imgData =
         ByteBuffer.allocateDirect(
             DIM_BATCH_SIZE
-                * getImageSizeX()
-                * getImageSizeY()
+                * getFeatSize()
                 * DIM_PIXEL_SIZE
                 * getNumBytesPerChannel());
     imgData.order(ByteOrder.nativeOrder());
@@ -223,99 +221,36 @@ public abstract class ClassifierTF {
     return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
   }
 
-  /** Writes Image data into a {@code ByteBuffer}. */
-  private void convertBitmapToByteBuffer(Bitmap bitmap) {
+  private void convertMatToByteBuffer(Mat dvs, Mat emg) {
     if (imgData == null) {
       return;
     }
     imgData.rewind();
-    Log.d("IMAGE", "" + bitmap.getWidth() + " :: " + bitmap.getHeight());
-    bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
-    // Convert the image to floating point.
-    int pixel = 0;
+
+    for (int i = 0; i < 24; ++i) {
+      addEMGValue((float) emg.get(0, i)[0]);
+    }
+
     long startTime = SystemClock.uptimeMillis();
     for (int i = 0; i < getImageSizeX(); ++i) {
       for (int j = 0; j < getImageSizeY(); ++j) {
-        final int val = intValues[pixel++];
-        Log.d("PIXEL VALUES", "" + val);
-        addPixelValue(val);
+        addPixelValue((int) dvs.get(i, j)[0]);
       }
     }
+
     long endTime = SystemClock.uptimeMillis();
     LOGGER.v("Timecost to put values into ByteBuffer: " + (endTime - startTime));
   }
 
-  private void convertMatToByteBuffer(Mat mat) {
-    if (imgData == null) {
-      return;
-    }
-    imgData.rewind();
-//    bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
-    // Convert the image to floating point.
-    int pixel = 0;
-    long startTime = SystemClock.uptimeMillis();
-    for (int i = 0; i < getImageSizeX(); ++i) {
-      for (int j = 0; j < getImageSizeY(); ++j) {
-        pixel = (int) mat.get(i, j)[0];
-        addPixelValue(pixel);
-      }
-    }
-    long endTime = SystemClock.uptimeMillis();
-    LOGGER.v("Timecost to put values into ByteBuffer: " + (endTime - startTime));
-  }
+
 
   /** Runs inference and returns the classification results. */
-  public List<Recognition> recognizeImage(final Bitmap bitmap) {
+  public List<Recognition> recognizeJoint(final Mat dvs, final Mat emg) {
     // Log this method so that it can be analyzed with systrace.
     Trace.beginSection("recognizeImage");
 
     Trace.beginSection("preprocessBitmap");
-    convertBitmapToByteBuffer(bitmap);
-    Trace.endSection();
-
-    // Run the inference call.
-    Trace.beginSection("runInference");
-    long startTime = SystemClock.uptimeMillis();
-    runInference();
-    long endTime = SystemClock.uptimeMillis();
-    Trace.endSection();
-    LOGGER.v("Timecost to run model inference: " + (endTime - startTime));
-
-    // Find the best classifications.
-    PriorityQueue<Recognition> pq =
-        new PriorityQueue<Recognition>(
-            3,
-            new Comparator<Recognition>() {
-              @Override
-              public int compare(Recognition lhs, Recognition rhs) {
-                // Intentionally reversed to put high confidence at the head of the queue.
-                return Float.compare(rhs.getConfidence(), lhs.getConfidence());
-              }
-            });
-    for (int i = 0; i < labels.size(); ++i) {
-      pq.add(
-          new Recognition(
-              "" + i,
-              labels.size() > i ? labels.get(i) : "unknown",
-              getNormalizedProbability(i),
-              null));
-    }
-    final ArrayList<Recognition> recognitions = new ArrayList<Recognition>();
-    int recognitionsSize = Math.min(pq.size(), MAX_RESULTS);
-    for (int i = 0; i < recognitionsSize; ++i) {
-      recognitions.add(pq.poll());
-    }
-    Trace.endSection();
-    return recognitions;
-  }
-
-  /** Runs inference and returns the classification results. */
-  public List<Recognition> recognizeImage(final Mat mat) {
-    // Log this method so that it can be analyzed with systrace.
-    Trace.beginSection("recognizeImage");
-
-    Trace.beginSection("preprocessBitmap");
-    convertMatToByteBuffer(mat);
+    convertMatToByteBuffer(dvs, emg);
     Trace.endSection();
 
     // Run the inference call.
@@ -372,14 +307,22 @@ public abstract class ClassifierTF {
    *
    * @return
    */
+  public abstract int getFeatSize();
+
+  /**
+   * Get the image size along the x axis.
+   *
+   * @return
+   */
   public abstract int getImageSizeX();
 
   /**
-   * Get the image size along the y axis.
+   * Get the image size along the x axis.
    *
    * @return
    */
   public abstract int getImageSizeY();
+
 
   /**
    * Get the name of the model file stored in Assets.
@@ -408,6 +351,11 @@ public abstract class ClassifierTF {
    * @param pixelValue
    */
   protected abstract void addPixelValue(int pixelValue);
+
+  /**
+   * Add pixelValue to byteBuffer.
+   */
+  protected abstract void addEMGValue(float EMGValue);
 
   /**
    * Read the probability value for the specified label This is either the original value as it was

@@ -77,22 +77,22 @@ public class ListActivity extends AppCompatActivity {
         setContentView(R.layout.activity_list);
 
         prog = (ProgressBar) findViewById(R.id.progressBar2);
-        scanButton = (Button) findViewById(R.id.scanButton);
-        scanningText = (TextView) findViewById(R.id.scanning_text);
+//        scanButton = (Button) findViewById(R.id.scanButton);
+//        scanningText = (TextView) findViewById(R.id.scanning_text);
 
         mHandler = new Handler();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             Toast.makeText(this, "Bluetooth Not Supported", Toast.LENGTH_SHORT).show();
             finish();
         }
+
         final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
 
-        ListView devicesList = (ListView) findViewById(R.id.listView1);
+        ListView devicesList = (ListView) findViewById(R.id.listDevices);
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_expandable_list_item_1, deviceNames);
 
         devicesList.setAdapter(adapter);
-
 
 
         if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {

@@ -1,7 +1,7 @@
 package com.eneaceolini.aereader;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -14,7 +14,6 @@ import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -28,17 +27,18 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.ParcelUuid;
 import android.support.annotation.RequiresApi;
-import android.support.v4.app.Fragment;
 import android.support.v7.app.AlertDialog;
+import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
@@ -76,18 +76,12 @@ import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
-import static android.content.Context.BLUETOOTH_SERVICE;
 
-/**
- * Created by User on 2/28/2017.
- */
-
-public class DVSPlusEMG extends Fragment {
+public class MainActivity2 extends AppCompatActivity {
 
     private static final int NUM_FEAT_DVS = 1296;
     private static final int NUM_FEAT_EMG = 24;
 
-    private UsbDevice device;
     private UsbManager usbManager;
     private ReadEvents readEvents;
     ImageView imageView;
@@ -126,7 +120,7 @@ public class DVSPlusEMG extends Fragment {
     private TextView connectingText;
     private BluetoothLeScanner mLEScanner;
 
-    private MyoGattCallback mMyoCallback;
+    private MyoGattCallbackv2 mMyoCallback;
 
     private String deviceName;
 
@@ -137,6 +131,8 @@ public class DVSPlusEMG extends Fragment {
     ArrayAdapter<String> adapter;
     ListView devicesList;
     AlertDialog devDialog;
+
+    private CheckBox checkDVS, checkEMG, checkJOINT;
 
     /**
      * Device Scanning Time (ms)
@@ -156,7 +152,43 @@ public class DVSPlusEMG extends Fragment {
     private TextView scanningText;
     private ProgressBar prog;
 
-    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(getContext()) {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.dvs_emg);
+
+        imageView = findViewById(R.id.imageView);
+
+        classDVS = findViewById(R.id.classDVS);
+        classEMG = findViewById(R.id.classEMG);
+        classJOIN = findViewById(R.id.classJOIN);
+
+        checkDVS = findViewById(R.id.checkDVS);
+        checkEMG = findViewById(R.id.checkEMG);
+        checkJOINT = findViewById(R.id.checkJOINT);
+
+        scanDevices = findViewById(R.id.buttonScan);
+        scanDevices.setOnClickListener(v1 -> deviceList());
+
+        connectDVS = findViewById(R.id.connectDVS);
+        connectDVS.setOnClickListener(v1 -> connectToDVS());
+
+        DisplayMetrics dm = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(dm);
+        width_image = dm.heightPixels / 2;
+        height_image = dm.heightPixels / 2;
+
+        //////// MYO STUFF
+        mChart = findViewById(R.id.chart);
+        mHandler = new Handler();
+        BluetoothManager mBluetoothManager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
+        mBluetoothAdapter = mBluetoothManager.getAdapter();
+        //////// END
+
+    }
+
+    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(MainActivity2.this) {
         @Override
         public void onManagerConnected(int status) {
             if (status == LoaderCallbackInterface.SUCCESS) {
@@ -185,7 +217,7 @@ public class DVSPlusEMG extends Fragment {
 
         InputStream inputStream;
         try {
-            inputStream = Objects.requireNonNull(getContext()).getAssets().open(fileName);
+            inputStream = Objects.requireNonNull(MainActivity2.this).getAssets().open(fileName);
             File file = createFileFromInputStream(inputStream);
             assert file != null;
             return SVM.load(file.getPath());
@@ -197,7 +229,7 @@ public class DVSPlusEMG extends Fragment {
 
     private void loadArray(String fileName, float[] array) {
         try {
-            InputStream inputStream = Objects.requireNonNull(getContext()).getAssets().open(fileName);
+            InputStream inputStream = MainActivity2.this.getAssets().open(fileName);
             File file = createFileFromInputStream(inputStream);
             assert file != null;
             FileInputStream is = new FileInputStream(file.getPath());
@@ -226,7 +258,7 @@ public class DVSPlusEMG extends Fragment {
         super.onResume();
 
         if (!OpenCVLoader.initDebug()) {
-            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, getContext(), mLoaderCallback);
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, MainActivity2.this, mLoaderCallback);
         } else {
             mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
         }
@@ -235,8 +267,8 @@ public class DVSPlusEMG extends Fragment {
 
         try {
             LOGGER.d("Creating classifier (model=%s, device=%s, numThreads=%d)", model, dev, numThreads);
-            classifier = ClassifierTF.create(getActivity(), model, dev, numThreads);
-            // classifier.runInference();
+            classifier = ClassifierTF.create(MainActivity2.this, model, dev, numThreads);
+
         } catch (IOException e) {
             LOGGER.e(e, "Failed to create classifier.");
         }
@@ -244,7 +276,7 @@ public class DVSPlusEMG extends Fragment {
 
     public void deviceList() {
 
-        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(getContext());
+        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(MainActivity2.this);
         LayoutInflater inflater = this.getLayoutInflater();
         @SuppressLint("InflateParams") final View dialogView = inflater.inflate(R.layout.activity_list, null);
         dialogBuilder.setView(dialogView);
@@ -254,16 +286,16 @@ public class DVSPlusEMG extends Fragment {
 //        scanningText = (TextView) dialogView.findViewById(R.id.scanning_text);
 
         mHandler = new Handler();
-        if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-            Toast.makeText(getContext(), "Bluetooth Not Supported", Toast.LENGTH_SHORT).show();
-            getActivity().finish();
+        if (!MainActivity2.this.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+            Toast.makeText(MainActivity2.this, "Bluetooth Not Supported", Toast.LENGTH_SHORT).show();
+            finish();
         }
 
-        final BluetoothManager bluetoothManager = (BluetoothManager) getContext().getSystemService(Context.BLUETOOTH_SERVICE);
+        final BluetoothManager bluetoothManager = (BluetoothManager) MainActivity2.this.getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
 
-        devicesList = (ListView) dialogView.findViewById(R.id.listDevices);
-        adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_expandable_list_item_1, deviceNames);
+        devicesList = dialogView.findViewById(R.id.listDevices);
+        adapter = new ArrayAdapter<>(MainActivity2.this, android.R.layout.simple_expandable_list_item_1, deviceNames);
 
         devicesList.setAdapter(adapter);
 
@@ -275,34 +307,23 @@ public class DVSPlusEMG extends Fragment {
             if (Build.VERSION.SDK_INT >= 21) {
                 mLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
                 settings = new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();
-                filters = new ArrayList<ScanFilter>();
+                filters = new ArrayList<>();
             }
         }
 
-        devicesList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                ListView listView = (ListView) parent;
-                String item = (String) listView.getItemAtPosition(position);
-                Toast.makeText(getContext(), item + " is connecting...", Toast.LENGTH_SHORT).show();
-//                mLEScanner.stopScan(mScanCallback);//added this for the tablet that sucks
-                myoName = item;
-                deviceName = item;
-                // DO OTHER STUFF
-                Log.d("SELECTED", myoName);
-                devDialog.dismiss();
-                connectToMyo();
-            }
+        devicesList.setOnItemClickListener((parent, view, position, id) -> {
+            ListView listView = (ListView) parent;
+            String item = (String) listView.getItemAtPosition(position);
+            Toast.makeText(MainActivity2.this, item + " is connecting...", Toast.LENGTH_SHORT).show();
+            myoName = item;
+            deviceName = item;
+            // DO OTHER STUFF
+            Log.d("SELECTED", myoName);
+            devDialog.dismiss();
+            connectToMyo();
         });
 
-        //scans for devices when initiated
         scanDevice();
-//        scanButton.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                scanDevice();
-//            }
-//        });
 
         dialogBuilder.setTitle("Devices");
 
@@ -311,7 +332,6 @@ public class DVSPlusEMG extends Fragment {
     }
 
     private void scanDevice() {
-//        scanButton.setVisibility(View.INVISIBLE);
         scanningText.setVisibility(View.VISIBLE);
         prog.setVisibility(View.VISIBLE);
 
@@ -322,17 +342,13 @@ public class DVSPlusEMG extends Fragment {
             deviceNames.clear();
             // Scanning Time out by Handler.
             // The device scanning needs high energy.
-            mHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    mLEScanner.stopScan(mScanCallback2);
-                    adapter.notifyDataSetChanged();
-                    Toast.makeText(getContext(), "Scan Stopped", Toast.LENGTH_SHORT).show();
-                    prog.setVisibility(View.INVISIBLE);
-                    scanningText.setVisibility(View.INVISIBLE);
-//                    scanButton.setVisibility(View.VISIBLE);
+            mHandler.postDelayed(() -> {
+                mLEScanner.stopScan(mScanCallback2);
+                adapter.notifyDataSetChanged();
+                Toast.makeText(MainActivity2.this, "Scan Stopped", Toast.LENGTH_SHORT).show();
+                prog.setVisibility(View.INVISIBLE);
+                scanningText.setVisibility(View.INVISIBLE);
 
-                }
             }, SCAN_PERIOD);
             mLEScanner.startScan(filters, settings, mScanCallback2);
         }
@@ -345,10 +361,10 @@ public class DVSPlusEMG extends Fragment {
             Log.d("result", result.toString());
             BluetoothDevice device = result.getDevice();
             ParcelUuid[] uuids = device.getUuids();
-            String uuid = "";
+            StringBuilder uuid = new StringBuilder();
             if (uuids != null) {
                 for (ParcelUuid puuid : uuids) {
-                    uuid += puuid.toString() + " ";
+                    uuid.append(puuid.toString()).append(" ");
                 }
             }
 
@@ -390,27 +406,25 @@ public class DVSPlusEMG extends Fragment {
                     scanner.stopScan(mScanCallback);
                 } else {
                     // Device Bluetooth is disabled; scanning should already be stopped, nothing to do here.
-                    Toast.makeText(getContext(), "Please enable Bluetooth", Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity2.this, "Please enable Bluetooth", Toast.LENGTH_LONG).show();
                 }
-
                 // Trying to connect GATT
                 plotter = new Plotter(mHandler, mChart, currentEMG);
-                mMyoCallback = new MyoGattCallback(mHandler, myoConnectionText, connectingText, plotter, getView());
-                mBluetoothGatt = device.connectGatt(getActivity(), false, mMyoCallback);
+                mMyoCallback = new MyoGattCallbackv2(mHandler, plotter);
+                mBluetoothGatt = device.connectGatt(MainActivity2.this, false, mMyoCallback);
                 mMyoCallback.setBluetoothGatt(mBluetoothGatt);
             }
         }
     };
 
 
-
     private File createFileFromInputStream(InputStream inputStream) {
 
         try {
-            File f = new File(Objects.requireNonNull(getContext()).getFilesDir().getPath() + "/local_dump_smv.xml");
+            File f = new File(MainActivity2.this.getFilesDir().getPath() + "/local_dump_smv.xml");
             OutputStream outputStream = new FileOutputStream(f);
             byte[] buffer = new byte[1024];
-            int length = 0;
+            int length;
 
             while ((length = inputStream.read(buffer)) > 0) {
                 outputStream.write(buffer, 0, length);
@@ -421,44 +435,10 @@ public class DVSPlusEMG extends Fragment {
 
             return f;
         } catch (IOException e) {
-            //Logging exception
             e.printStackTrace();
         }
 
         return null;
-    }
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        final View v = inflater.inflate(R.layout.dvs_emg, container, false);
-        assert v != null;
-
-        imageView = v.findViewById(R.id.imageView);
-
-        classDVS = v.findViewById(R.id.classDVS);
-        classEMG = v.findViewById(R.id.classEMG);
-        classJOIN = v.findViewById(R.id.classJOIN);
-
-        scanDevices = v.findViewById(R.id.buttonScan);
-        scanDevices.setOnClickListener(v1 -> deviceList());
-
-        connectDVS = v.findViewById(R.id.connectDVS);
-        connectDVS.setOnClickListener(v1 -> connectToDVS());
-
-        DisplayMetrics dm = new DisplayMetrics();
-        getActivity().getWindowManager().getDefaultDisplay().getMetrics(dm);
-        width_image = dm.heightPixels / 2;
-        height_image = dm.heightPixels / 2;
-
-        //////// MYO STUFF
-        mChart = v.findViewById(R.id.chart);
-        mHandler = new Handler();
-        BluetoothManager mBluetoothManager = (BluetoothManager) getActivity().getSystemService(BLUETOOTH_SERVICE);
-        mBluetoothAdapter = mBluetoothManager.getAdapter();
-        //////// END
-
-        return v;
     }
 
     private void connectToMyo(){
@@ -476,24 +456,25 @@ public class DVSPlusEMG extends Fragment {
                 scanner.startScan(mScanCallback);
             } else {
                 // Device Bluetooth is disabled; check and prompt user to enable.
-                Toast.makeText(getContext(), "Please enable Bluetooth", Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity2.this, "Please enable Bluetooth", Toast.LENGTH_LONG).show();
             }
         }
     }
 
     private void connectToDVS() {
         try {
-            usbManager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+            usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
 
             HashMap<String, UsbDevice> deviceList = usbManager.getDeviceList();
 
-            device = deviceList.get(deviceList.keySet().iterator().next());
+            UsbDevice device = deviceList.get(deviceList.keySet().iterator().next());
+            assert device != null;
             Log.d("DEVICE", "CONNECTED:: " + device.getDeviceName());
-            PendingIntent permissionIntent = PendingIntent.getBroadcast(getContext(), 0, new Intent(ACTION_USB_PERMISSION), 0);
+            PendingIntent permissionIntent = PendingIntent.getBroadcast(MainActivity2.this, 0, new Intent(ACTION_USB_PERMISSION), 0);
             IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-            getActivity().registerReceiver(usbReceiver, filter);
+            registerReceiver(usbReceiver, filter);
             usbManager.requestPermission(device, permissionIntent);
-            Toast.makeText(getContext(), "Connected to DVS128!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity2.this, "Connected to DVS128!", Toast.LENGTH_SHORT).show();
 
             // bias
             if (null != device) {
@@ -506,9 +487,9 @@ public class DVSPlusEMG extends Fragment {
 
                 int start = connection.controlTransfer(0, 0xb8, 0, 0, b, b.length, 0);
                 Log.d("SEND BIAS", "" + start);
-                Toast.makeText(getContext(), "Bias set!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity2.this, "Bias set!", Toast.LENGTH_SHORT).show();
 
-                readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue);
+                readEvents = new ReadEvents(MainActivity2.this, device, usbManager, blockingQueue);
 
                 readEvents.start();
                 //create and start handler used to update GUI
@@ -518,7 +499,7 @@ public class DVSPlusEMG extends Fragment {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(getContext(), "Could not open device", Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity2.this, "Could not open device", Toast.LENGTH_SHORT).show();
         }
 
     }
@@ -526,7 +507,7 @@ public class DVSPlusEMG extends Fragment {
     public byte[] formatConfigurationBytes(String config) {
         // we need to cast from PotArray to IPotArray, because we need the shift register stuff
 
-        PotArray potArray = new IPotArray();
+        IPotArray potArray = new IPotArray();
         Log.d("BIAS", "Sending bias config:" + config);
         switch (config) {
             case BIAS_FAST:
@@ -564,26 +545,22 @@ public class DVSPlusEMG extends Fragment {
         // new array of the proper size, and pass it to the routine that actually sends a vendor request
         // with a data buffer that is the bytes
 
-        if (potArray instanceof IPotArray) {
-            IPotArray ipots = (IPotArray) potArray;
-            byte[] bytes = new byte[potArray.getNumPots() * 8];
-            int byteIndex = 0;
+        byte[] bytes = new byte[potArray.getNumPots() * 8];
+        int byteIndex = 0;
 
 
-            Iterator i = ipots.getShiftRegisterIterator();
-            while (i.hasNext()) {
-                // for each bias starting with the first one (the one closest to the ** FAR END ** of the shift register
-                // we get the binary representation in byte[] form and from MSB ro LSB stuff these values into the byte array
-                IPot iPot = (IPot) i.next();
-                byte[] thisBiasBytes = iPot.getBinaryRepresentation();
-                System.arraycopy(thisBiasBytes, 0, bytes, byteIndex, thisBiasBytes.length);
-                byteIndex += thisBiasBytes.length;
-            }
-            byte[] toSend = new byte[byteIndex];
-            System.arraycopy(bytes, 0, toSend, 0, byteIndex);
-            return toSend;
+        Iterator i = potArray.getShiftRegisterIterator();
+        while (i.hasNext()) {
+            // for each bias starting with the first one (the one closest to the ** FAR END ** of the shift register
+            // we get the binary representation in byte[] form and from MSB ro LSB stuff these values into the byte array
+            IPot iPot = (IPot) i.next();
+            byte[] thisBiasBytes = iPot.getBinaryRepresentation();
+            System.arraycopy(thisBiasBytes, 0, bytes, byteIndex, thisBiasBytes.length);
+            byteIndex += thisBiasBytes.length;
         }
-        return null;
+        byte[] toSend = new byte[byteIndex];
+        System.arraycopy(bytes, 0, toSend, 0, byteIndex);
+        return toSend;
     }
 
     private static final String ACTION_USB_PERMISSION =
@@ -600,7 +577,7 @@ public class DVSPlusEMG extends Fragment {
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         if (device != null) {
                             //call method to set up device communication
-                            readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue);
+                            readEvents = new ReadEvents(MainActivity2.this, device, usbManager, blockingQueue);
                             Log.d("DEVICE", "CONNECTED");
                         }
                     } else {
@@ -616,6 +593,7 @@ public class DVSPlusEMG extends Fragment {
         try {
             bmp = Bitmap.createBitmap(mat.cols(), mat.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(mat, bmp);
+
         } catch (CvException e) {
             Log.d("Exception", e.getMessage());
         }
@@ -702,6 +680,10 @@ public class DVSPlusEMG extends Fragment {
                 toShow.put(cX + halfCenter, cY - halfCenter + i, rc, gc, bc, 255);
             }
 
+            final List<ClassifierTF.Recognition> results = classifier.recognizeImage(toProcess);
+
+            Log.d("CNN", results.get(0).getTitle() + " :: " + results.get(0).getConfidence());
+            classDVS.setText(results.get(0).getTitle());
             double[] hogDVS = exportImgFeatures(toProcess);
 
             // retrieve latest emg
@@ -726,9 +708,13 @@ public class DVSPlusEMG extends Fragment {
                     featJOIN.put(0, i, (emg[i] - meanEMG[i]) / stdEMG[i]);
                 }
 
-                classDVS.setText(getLabel(svmDVS.predict(featDVS)));
-                classEMG.setText(getLabel(svmEMG.predict(featEMG)));
-                classJOIN.setText(getLabel(svmJOIN.predict(featJOIN)));
+
+                if (checkDVS.isChecked()) classDVS.setText(getLabel(svmDVS.predict(featDVS)));
+                else classDVS.setText("---");
+                if (checkEMG.isChecked()) classEMG.setText(getLabel(svmEMG.predict(featEMG)));
+                else classEMG.setText("---");
+                if (checkJOINT.isChecked()) classJOIN.setText(getLabel(svmJOIN.predict(featJOIN)));
+                else classJOIN.setText("---");
             }
         }
         return toShow;
@@ -769,4 +755,36 @@ public class DVSPlusEMG extends Fragment {
         }
         handler.postDelayed(runnable, 20);
     }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+       getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        switch (id) {
+            case R.id.connect:
+                Intent intent = new Intent(this, ListActivity.class);
+                startActivity(intent);
+                return true;
+            case R.id.disconnect:
+                Intent mStartActivity = new Intent(MainActivity2.this, MainActivity2.class);
+                int mPendingIntentId = 12;
+                PendingIntent mPendingIntent = PendingIntent.getActivity(MainActivity2.this, mPendingIntentId, mStartActivity,
+                        PendingIntent.FLAG_CANCEL_CURRENT);
+                AlarmManager mgr = (AlarmManager) MainActivity2.this.getSystemService(ALARM_SERVICE);
+                mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 100, mPendingIntent);
+                System.exit(0);
+                //closeBLEGatt();
+                Toast.makeText(getApplicationContext(), "Close GATT", Toast.LENGTH_SHORT).show();
+                return true;
+        }
+        return false;
+    }
+
 }
+
+

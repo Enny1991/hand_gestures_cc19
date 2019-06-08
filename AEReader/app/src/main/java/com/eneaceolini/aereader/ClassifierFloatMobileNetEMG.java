@@ -20,7 +20,7 @@ import android.app.Activity;
 import java.io.IOException;
 
 /** This TensorFlowLite classifier works with the float MobileNet model. */
-public class ClassifierFloatMobileNet extends ClassifierTF {
+public class ClassifierFloatMobileNetEMG extends ClassifierEMG {
 
   /**
    * An array to hold inference results, to be feed into Tensorflow Lite as outputs. This isn't part
@@ -33,7 +33,7 @@ public class ClassifierFloatMobileNet extends ClassifierTF {
    *
    * @param activity
    */
-  public ClassifierFloatMobileNet(Activity activity, ClassifierTF.Device device, int numThreads)
+  public ClassifierFloatMobileNetEMG(Activity activity, Device device, int numThreads)
       throws IOException {
     super(activity, device, numThreads);
     labelProbArray = new float[1][getNumLabels()];
@@ -41,12 +41,7 @@ public class ClassifierFloatMobileNet extends ClassifierTF {
 
   @Override
   public int getImageSizeX() {
-    return 60;
-  }
-
-  @Override
-  public int getImageSizeY() {
-    return 60;
+    return 24;
   }
 
   @Override
@@ -54,7 +49,7 @@ public class ClassifierFloatMobileNet extends ClassifierTF {
     // you can download this file from
     // see build.gradle for where to obtain this file. It should be auto
     // downloaded into assets.
-    return "cnn_dvs.tflite";
+    return "cnn_emg.tflite";
   }
 
   @Override
@@ -68,8 +63,8 @@ public class ClassifierFloatMobileNet extends ClassifierTF {
   }
 
   @Override
-  protected void addPixelValue(int pixelValue) {
-    imgData.putFloat(pixelValue  / 255.f);  // only one channel
+  protected void addPixelValue(float pixelValue) {
+    imgData.putFloat(pixelValue);  // only one channel
   }
 
   @Override

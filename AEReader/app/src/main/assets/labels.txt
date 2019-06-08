@@ -1,5 +1,5 @@
-pinky
-elle
-yo
-index
-thumb
+PINKY
+ELLE
+YO
+INDEX
+THUMB

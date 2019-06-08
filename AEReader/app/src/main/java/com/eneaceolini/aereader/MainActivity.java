@@ -205,8 +205,10 @@ public class MainActivity extends AppCompatActivity {
         switch (id) {
             case R.id.connect:
             case MENU_LIST:
+
                 Intent intent = new Intent(this, ListActivity.class);
                 startActivity(intent);
+
                 return true;
 
             case R.id.disconnect:
@@ -220,10 +222,7 @@ public class MainActivity extends AppCompatActivity {
                 //closeBLEGatt();
                 Toast.makeText(getApplicationContext(), "Close GATT", Toast.LENGTH_SHORT).show();
                 return true;
-            case R.id.blob:
-                Intent intent2 = new Intent(this, BlobActivity.class);
-                startActivity(intent2);
-                return true;
+
         }
         return false;
     }

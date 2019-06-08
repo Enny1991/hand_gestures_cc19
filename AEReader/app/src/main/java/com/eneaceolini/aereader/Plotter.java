@@ -20,13 +20,10 @@ import com.github.mikephil.charting.data.RadarData;
 import com.github.mikephil.charting.data.RadarDataSet;
 import com.github.mikephil.charting.data.RadarEntry;
 import com.github.mikephil.charting.formatter.IAxisValueFormatter;
-import com.github.mikephil.charting.formatter.IFillFormatter;
-import com.github.mikephil.charting.interfaces.dataprovider.LineDataProvider;
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 import com.github.mikephil.charting.interfaces.datasets.IRadarDataSet;
 import com.github.mikephil.charting.utils.ColorTemplate;
 
-import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.ml.SVM;
 
@@ -78,6 +75,7 @@ public class Plotter extends Activity {
     }
 
     public Plotter(Handler handler, RadarChart chart, ArrayList<Float> queue) {
+        Log.d("PLOTTER", "SPAWN");
         mHandler = handler;
         currentEMG = queue;
         mChart = chart;
@@ -90,13 +88,15 @@ public class Plotter extends Activity {
         mChart.setWebColor(Color.LTGRAY);
         mChart.setWebLineWidthInner(1f);
         mChart.setWebColorInner(Color.LTGRAY);
+        mChart.getLegend().setTextColor(Color.WHITE);
         mChart.setWebAlpha(100);
 //      mChart.getLegend().setTextSize(20f);
-        mChart.getLegend().setPosition(Legend.LegendPosition.BELOW_CHART_CENTER);
+        mChart.getLegend().setPosition(Legend.LegendPosition.LEFT_OF_CHART_CENTER);
 
         XAxis xAxis = mChart.getXAxis();
         //xAxis.setTypeface(mTfLight);
         xAxis.setTextSize(10f);
+        xAxis.setTextColor(Color.WHITE);
         xAxis.setYOffset(0f);
         xAxis.setXOffset(0f);
         xAxis.setValueFormatter(new IAxisValueFormatter() {
@@ -141,14 +141,6 @@ public class Plotter extends Activity {
 
     }
 
-    public void setSVM(SVM svm, Mat f, float[] mean, float[] std){
-        this.svm = svm;
-        this.f = f;
-        this.mean = mean;
-        this.std = std;
-        Log.d("emg SVM", "" + svm);
-
-    }
 
     private File createFileFromInputStream(InputStream inputStream) {
 
@@ -398,9 +390,8 @@ public class Plotter extends Activity {
 
     long start = System.currentTimeMillis();
 
-    public void pushFeaturePlotter(twoDimArray featureData) {
+    public synchronized void pushFeaturePlotter(twoDimArray featureData) {
         if (mChart != null && currentTab == 1) {
-//        if (mChart != null) {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
@@ -413,76 +404,62 @@ public class Plotter extends Activity {
                     ArrayList<RadarEntry> entries1 = new ArrayList<RadarEntry>();
                     ArrayList<RadarEntry> entries2 = new ArrayList<RadarEntry>();
 
-
                     float[] toPush = new float[24];
 
                     for (int i = 0; i < 8; i++) {
                         //2000 per division 14 000 in total
                         entries0.add(new RadarEntry(setMaxValue(f0.get(i).floatValue() * 200)));
-
                         entries1.add(new RadarEntry(setMaxValue(f1.get(i).floatValue() * 200)));
                         entries2.add(new RadarEntry(setMaxValue(f2.get(i).floatValue() * 200)));
                         toPush[i] = f0.get(i).floatValue();
                         toPush[i + 8] = f1.get(i).floatValue();
                         toPush[i + 16] = f2.get(i).floatValue();
 
-//                        if (null != svm) {
-//                            f.put(0, i, (f0.get(i).floatValue() - mean[i]) / std[i]);  // MAV
-//                            f.put(0, i + 8, (f1.get(i).floatValue() - mean[i + 8]) / std[i + 8]);  // RMS
-//                            f.put(0, i + 16, (f2.get(i).floatValue() - mean[i + 16]) / std[i + 16]);  // SD
-//                        }
-
-
                     }
 
-                    for(int i = 0; i < 24; i++)
-                        currentEMG.add(toPush[i]);
-                    Log.d("SIZE PUSH", "" + (System.currentTimeMillis() - start));
-                    start = System.currentTimeMillis();
 
-//                    if (null != svm) {
-//                        float res = svm.predict(f);
-//                        String _class = "None";
-//                        if(res == 0.0) _class = "PINKY";
-//                        if(res == 1.0) _class = "ELLE";
-//                        if(res == 2.0) _class = "YO";
-//                        if(res == 3.0) _class = "INDEX";
-//                        if(res == 4.0) _class = "THUMB";
-//
-//                        Log.d("EMG SVM", "" + _class);
-//                    } else{
-//                        Log.d("SVM", "isnull");
-//                    }
+                    for(int i = 0; i < 24; i++) {
+                        currentEMG.add(toPush[i]);
+                        if (currentEMG.size() > 24)
+                            currentEMG.remove(0);
+                    }
+
+                    start = System.currentTimeMillis();
 
                     ArrayList<IRadarDataSet> sets = new ArrayList<IRadarDataSet>();
 
                     RadarDataSet set0 = new RadarDataSet(entries0, "MAV");
-                    set0.setColor(Color.rgb(123, 174, 157));
-                    set0.setFillColor(Color.rgb(78, 118, 118));
+//                    set0.setColor(Color.rgb(123, 174, 157));
+//                    set0.setFillColor(Color.rgb(78, 118, 118));
+                    set0.setColor(Color.argb(255, 0, 255, 255));
+                    set0.setFillColor(Color.argb(10, 0, 255, 255));
                     set0.setDrawFilled(true);
-                    set0.setFillAlpha(180);
+                    set0.setFillAlpha(100);
                     set0.setLineWidth(2f);
 
                     RadarDataSet set1 = new RadarDataSet(entries1, "RMS");
-                    set1.setColor(Color.rgb(241, 148, 138));
-                    set1.setFillColor(Color.rgb(205, 97, 85));
+//                    set1.setColor(Color.rgb(241, 148, 138));
+//                    set1.setFillColor(Color.rgb(205, 97, 85));
+
+                    set1.setColor(Color.argb(255, 255, 0, 255));
+                    set1.setFillColor(Color.argb(10, 255, 0, 255));
                     set1.setDrawFilled(true);
-                    set1.setFillAlpha(180);
+                    set1.setFillAlpha(100);
                     set1.setLineWidth(2f);
 
-                    RadarDataSet set2 = new RadarDataSet(entries2, "SD");
-                    set2.setColor(Color.rgb(175, 122, 197));
-                    set2.setFillColor(Color.rgb(165, 105, 189));
-                    set2.setDrawFilled(true);
-                    set2.setFillAlpha(180);
-                    set2.setLineWidth(2f);
+//                    RadarDataSet set2 = new RadarDataSet(entries2, "SD");
+//                    set2.setColor(Color.rgb(175, 122, 197));
+//                    set2.setFillColor(Color.rgb(165, 105, 189));
+//                    set2.setDrawFilled(true);
+//                    set2.setFillAlpha(180);
+//                    set2.setLineWidth(2f);
 
                     if (featuresSelected[0])
                         sets.add(set0);
                     if (featuresSelected[1])
                         sets.add(set1);
-                    if (featuresSelected[2])
-                        sets.add(set2);
+//                    if (featuresSelected[2])
+//                        sets.add(set2);
 
                     if (!sets.isEmpty()) {
                         RadarData data = new RadarData(sets);

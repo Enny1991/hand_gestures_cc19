@@ -140,7 +140,7 @@ public class ClassificationFragment extends Fragment {
         uploadButton = (ImageButton) v.findViewById(R.id.im_upload);
         resetButton = (ImageButton) v.findViewById(R.id.im_reset);
         listview = (ListView) v.findViewById(R.id.listView);
-        listview_Classifier = (ListView) v.findViewById(R.id.listView1);
+        listview_Classifier = (ListView) v.findViewById(R.id.listDevices);
         listview.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
         listview_Classifier.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
 
