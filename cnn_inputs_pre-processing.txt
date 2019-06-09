@@ -1,0 +1,48 @@
+--- cnn inputs pre-processing ---
+
+---------------------------------
+
+# function to normalize and standardize data
+def norm_stand(data):
+    data = data.astype(float)
+
+    # normalize
+    data_max = np.max(data)
+    data_min = np.min(data)
+    for i in range(len(data)):
+        data[i] = (data[i] - data_min) / (data_max - data_min)
+
+    # standardize
+    data_mean = np.mean(data)
+    data_std = np.std(data) + 1e-15
+    data -= data_mean
+    data /= data_std
+    
+    return data
+
+---------------------------------
+
+# parameters for pre-processing
+--- emg ---
+data_max =  68.71754309696473
+data_min =  0.0
+data_mean =  9.989849023500414
+data_std =  8.00750450155642
+
+--- dvs_evs ---
+data_max =  255
+data_min =  0
+data_mean =  5.02497621399177
+data_std =  18.176710732725073
+
+--- dav_evs ---
+data_max =  240
+data_min =  0
+data_mean =  12.66215390946502
+data_std =  23.17336329401839
+
+--- dav_aps ---
+data_max =  250
+data_min =  2
+data_mean =  184.0460073251029
+data_std =  46.54963776709588
