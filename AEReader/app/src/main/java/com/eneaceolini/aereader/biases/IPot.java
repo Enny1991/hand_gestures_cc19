@@ -1,4 +1,4 @@
-package com.eneaceolini.aereader;
+package com.eneaceolini.aereader.biases;
 
 public class IPot extends Pot {
 

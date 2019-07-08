@@ -229,7 +229,7 @@ public abstract class ClassifierEMG {
     }
 
     imgData.rewind();
-    for (int i = 0; i < getImageSizeX(); ++i) {
+    for (int i = 0; i < 16; ++i) {
         addPixelValue((float) mat.get(0, i)[0]);
       }
   }

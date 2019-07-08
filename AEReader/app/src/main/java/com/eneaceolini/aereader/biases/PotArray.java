@@ -1,4 +1,4 @@
-package com.eneaceolini.aereader;
+package com.eneaceolini.aereader.biases;
 
 import java.util.ArrayList;
 

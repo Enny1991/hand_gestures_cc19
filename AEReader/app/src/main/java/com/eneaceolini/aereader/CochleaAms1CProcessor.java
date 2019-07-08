@@ -58,7 +58,7 @@ public class CochleaAms1CProcessor extends AERProcessor {
 
 
 
-	public class CochleaAMS1cEvent {
+	public class CochleaAMS1cEvent extends AEREvent {
 		CochleaAMS1cEvent(int ch, int neuron, int side, long ts) {
 			this.ch = ch;
 			this.neuron = neuron;
@@ -106,7 +106,6 @@ public class CochleaAms1CProcessor extends AERProcessor {
 			int dataword = (0xff & buf[i]) | (0xff00 & (buf[i + 1] << 8));  // data sent little endian
 //			int dataword = (buf[i+1] << 8) + buf[i]; // 16 bit value of data;  // data sent little endian
 			String s1 = String.format("%8s", Integer.toBinaryString(dataword)).replace(' ', '0');
-//			Log.d("DATAWORD", s1);
 
 			final int code = (buf[i + 1] & 0xC0) >> 6; // gets two bits at XX00 0000 0000 0000. (val&0xC000)>>>14;
 			//  log.info("code " + code);
@@ -123,7 +122,7 @@ public class CochleaAms1CProcessor extends AERProcessor {
 //							addresses[eventCounter] = dataword & ADC_DATA_MASK; // leave all bits unchanged for ADC sample
 //							timestamps[eventCounter] = currentts;  // ADC event gets timestamp too
 //							eventCounter++;
-							Log.d("ADC", "EVENT");
+//							Log.d("ADC", "EVENT");
 //                                        System.out.println("ADC word: " + dataword + " adcChannel=" + adcChannel(dataword) + " adcSample=" + adcSample(dataword) + " isScannerSyncBit=" + isScannerSyncBit(dataword));
 						} else { //  received an address, write out event to addresses/timestamps output arrays, masking out other bits
 							CochleaAMS1cEvent e = new CochleaAMS1cEvent();
@@ -134,6 +133,7 @@ public class CochleaAms1CProcessor extends AERProcessor {
 							e.ts = currentts;
 							eventCounter++;
 							mEvents.add(e);
+//							Log.d("EV", "EVENT");
 						}
 
 					break;
@@ -142,11 +142,13 @@ public class CochleaAms1CProcessor extends AERProcessor {
 //					currentts = (dataword & 0x3fff);
 					currentts = (TICK_US * (currentts + wrapAdd));
 //                                System.out.println("timestamp=" + currentts);
+
 					break;
 				case 2: // timestamp wrap
 					wrapAdd += 0x4000L;
 //					NumberOfWrapEvents++;
-					Log.d("EVENT", "WRAP");
+//					wrapAdd += currentts;
+//					Log.d("EVENT", "WRAP");
 					//   log.info("wrap");
 					break;
 				case 3: // ts reset event

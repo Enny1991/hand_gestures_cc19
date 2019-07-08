@@ -316,14 +316,25 @@ public class FeatureCalculator {
             float absSum = 0;
             float sqSum = 0;
             float sample;
+            float max = 0;
+            float min = 1e15f;
             for (int i = 0; i < (winsize); i++){
                 j = k;                 //prev     //1 - 40
                 k = (j + 1) % bufsize; //current  //2 - 41
                 sample = samplebuf.get(k).getVectorData().get(sensor).floatValue();
+
+                if (sample > max)
+                    max = sample;
+                if (sample < min)
+                    min = sample;
+
                 mean += sample;
                 absSum += Math.abs(sample);
                 sqSum += Math.pow(sample, 2);
             }
+
+            Log.d("MINMAX EMG", sensor + " :: " + max + " :: " + min);
+
 
             featemg.setMatrixValue(0, sensor, absSum / winsize);  // MAV
             featemg.setMatrixValue(1, sensor, (float) Math.sqrt(sqSum / winsize));  // RMS

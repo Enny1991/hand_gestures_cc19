@@ -85,7 +85,8 @@ public abstract class ClassifierFUS {
   protected Interpreter tflite;
 
   /** A ByteBuffer to hold image data, to be feed into Tensorflow Lite as inputs. */
-  protected ByteBuffer imgData = null;
+  protected ByteBuffer dvsData = null;
+  protected ByteBuffer emgData = null;
 
   /**
    * Creates a classifier with the provided configuration.
@@ -188,13 +189,22 @@ public abstract class ClassifierFUS {
     tfliteOptions.setNumThreads(numThreads);
     tflite = new Interpreter(tfliteModel, tfliteOptions);
     labels = loadLabelList(activity);
-    imgData =
+    dvsData =
         ByteBuffer.allocateDirect(
             DIM_BATCH_SIZE
-                * getFeatSize()
+                * 60 * 60
                 * DIM_PIXEL_SIZE
                 * getNumBytesPerChannel());
-    imgData.order(ByteOrder.nativeOrder());
+    dvsData.order(ByteOrder.nativeOrder());
+
+    emgData =
+            ByteBuffer.allocateDirect(
+                    DIM_BATCH_SIZE
+                            * 16
+                            * DIM_PIXEL_SIZE
+                            * getNumBytesPerChannel());
+    emgData.order(ByteOrder.nativeOrder());
+
     LOGGER.d("Created a Tensorflow Lite Image Classifier.");
   }
 
@@ -222,12 +232,13 @@ public abstract class ClassifierFUS {
   }
 
   private void convertMatToByteBuffer(Mat dvs, Mat emg) {
-    if (imgData == null) {
+    if (dvsData == null || emgData == null) {
       return;
     }
-    imgData.rewind();
+    dvsData.rewind();
+    emgData.rewind();
 
-    for (int i = 0; i < 24; ++i) {
+    for (int i = 0; i < 16; ++i) {
       addEMGValue((float) emg.get(0, i)[0]);
     }
 

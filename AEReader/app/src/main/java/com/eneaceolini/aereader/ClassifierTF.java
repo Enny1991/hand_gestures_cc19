@@ -192,8 +192,8 @@ public abstract class ClassifierTF {
     imgData =
         ByteBuffer.allocateDirect(
             DIM_BATCH_SIZE
-                * getImageSizeX()
-                * getImageSizeY()
+                * 60
+                * 60
                 * DIM_PIXEL_SIZE
                 * getNumBytesPerChannel());
     imgData.order(ByteOrder.nativeOrder());
@@ -252,12 +252,10 @@ public abstract class ClassifierTF {
     imgData.rewind();
 //    bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
     // Convert the image to floating point.
-    int pixel = 0;
     long startTime = SystemClock.uptimeMillis();
     for (int i = 0; i < getImageSizeX(); ++i) {
       for (int j = 0; j < getImageSizeY(); ++j) {
-        pixel = (int) mat.get(i, j)[0];
-        addPixelValue(pixel);
+        addPixelValue((int) mat.get(i, j)[0]);
       }
     }
     long endTime = SystemClock.uptimeMillis();

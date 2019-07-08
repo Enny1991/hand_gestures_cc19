@@ -303,24 +303,26 @@ public class FeatureCalculatorv2 {
                 j = k;                 //prev     //1 - 40
                 k = (j + 1) % bufsize; //current  //2 - 41
                 sample = samplebuf.get(k).getVectorData().get(sensor).floatValue();
+
                 mean += sample;
                 absSum += Math.abs(sample);
                 sqSum += Math.pow(sample, 2);
             }
 
+
             featemg.setMatrixValue(0, sensor, absSum / winsize);  // MAV
             featemg.setMatrixValue(1, sensor, (float) Math.sqrt(sqSum / winsize));  // RMS
 
-            k = (firstCall + bufsize - 1) % bufsize;    //one before window start   // (41 - 40 + 1 = 2) - 1
-            for (int i = 0; i < (winsize); i++){
-                j = k;                 //prev     //1 - 40
-                k = (j + 1) % bufsize; //current  //2 - 41
-                sample = samplebuf.get(k).getVectorData().get(sensor).floatValue();
+//            k = (firstCall + bufsize - 1) % bufsize;    //one before window start   // (41 - 40 + 1 = 2) - 1
+//            for (int i = 0; i < (winsize); i++){
+//                j = k;                 //prev     //1 - 40
+//                k = (j + 1) % bufsize; //current  //2 - 41
+//                sample = samplebuf.get(k).getVectorData().get(sensor).floatValue();
+//
+//                sqSum += Math.pow(sample - mean, 2);
+//            }
 
-                sqSum += Math.pow(sample - mean, 2);
-            }
-
-            featemg.setMatrixValue(2, sensor, (float) Math.sqrt(sqSum / winsize));  // SD
+//            featemg.setMatrixValue(2, sensor, (float) Math.sqrt(sqSum / winsize));  // SD
 
             if (sensor == (nSensors - 1)) { //don't want to use all
                 plotter.pushFeaturePlotter(featemg);

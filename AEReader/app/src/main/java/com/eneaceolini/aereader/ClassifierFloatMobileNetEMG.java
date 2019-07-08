@@ -41,7 +41,7 @@ public class ClassifierFloatMobileNetEMG extends ClassifierEMG {
 
   @Override
   public int getImageSizeX() {
-    return 24;
+    return 16;
   }
 
   @Override
@@ -49,7 +49,7 @@ public class ClassifierFloatMobileNetEMG extends ClassifierEMG {
     // you can download this file from
     // see build.gradle for where to obtain this file. It should be auto
     // downloaded into assets.
-    return "cnn_emg.tflite";
+    return "cnn_200_emg.tflite";
   }
 
   @Override
@@ -64,7 +64,8 @@ public class ClassifierFloatMobileNetEMG extends ClassifierEMG {
 
   @Override
   protected void addPixelValue(float pixelValue) {
-    imgData.putFloat(pixelValue);  // only one channel
+    imgData.putFloat(pixelValue);
+//    imgData.putFloat((pixelValue - 9.989849023500414f) / 8.00750450155642f);  // only one channel
   }
 
   @Override

@@ -60,15 +60,17 @@ public class ReadEvents extends Thread {
     public int height, width;
     private BlockingQueue<ArrayList> blockingQueue;
     private long globalClock = 0L;
-    private int frameLength = 200; // ms
+    private int frameLength = 100; // ms
 
-    ReadEvents(Context context,
+    <T extends AERProcessor> ReadEvents(Context context,
                UsbDevice device,
                UsbManager usbManager,
-               BlockingQueue<ArrayList> blockingQueue) {
+               BlockingQueue<ArrayList> blockingQueue,
+               T processor) {
         context_activity = context;
         this.blockingQueue = blockingQueue;
-        processor = new DVS128Processor();
+//        processor = new DVS128Processor();
+        this.processor = processor;
         this.device = device;
         this.usbManager = usbManager;
     }
@@ -85,22 +87,30 @@ public class ReadEvents extends Thread {
         Log.d("FIRST", "" + first);
 //        Log.d("SECOND", "" + second);
         int c;
-        ArrayList<DVS128Processor.DVS128Event> events;
-        ArrayList<DVS128Processor.DVS128Event> toPush = new ArrayList<>();
+//        ArrayList<DVS128Processor.DVS128Event> events;
+//        ArrayList<DVS128Processor.DVS128Event> toPush = new ArrayList<>();
+
+        ArrayList<CochleaAms1CProcessor.CochleaAMS1cEvent> events;
+        ArrayList<CochleaAms1CProcessor.CochleaAMS1cEvent> toPush = new ArrayList<>();
+
+
         globalClock = System.currentTimeMillis();
         while (!STOP) {
             synchronized (this) {
                 usbData = new byte[dataEndpoint.getMaxPacketSize()];
 //                usbData = new byte[128];
                 c = connection.bulkTransfer(dataEndpoint, usbData, usbData.length, 0);
+//                Log.d("EV", "c :: " + c);
 
                 if (c > 0) {
                     events = processor.process(usbData, c);
                     if (events.size() > 0) {
                         toPush.addAll(events);
-                        if (toPush.size() > 2){
-                            if ((toPush.get(toPush.size()-1).ts - toPush.get(0).ts) > frameLength * 1000 || (System.currentTimeMillis() - globalClock) > frameLength) {
-                                try {
+                        if (toPush.size() > 0){
+                            if ((toPush.get(toPush.size()-1).ts - toPush.get(0).ts) > frameLength * 1000 || (System.currentTimeMillis() - globalClock) > frameLength * 1000) {
+//                            Log.d("EV", "TS :: " + toPush.get(toPush.size() - 1).ts);
+//                            Log.d("EV", "CH :: " + toPush.get(toPush.size() - 1).ch);
+                            try {
                                     blockingQueue.put(toPush);
                                     globalClock = System.currentTimeMillis();
                                     toPush= new ArrayList<>();
@@ -129,6 +139,7 @@ public class ReadEvents extends Thread {
         }
         UsbInterface usbInterface = device.getInterface(0); // for DVS128
         dataEndpoint = usbInterface.getEndpoint(1); // for DVS128
+
         connection = usbManager.openDevice(device);
         return connection.claimInterface(usbInterface, true);
     }

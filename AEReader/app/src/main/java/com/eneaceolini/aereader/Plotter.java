@@ -398,31 +398,34 @@ public class Plotter extends Activity {
 
                     f0 = featureData.getInnerArray(0);
                     f1 = featureData.getInnerArray(1);
-                    f2 = featureData.getInnerArray(2);
+//                    f2 = featureData.getInnerArray(2);
 
                     ArrayList<RadarEntry> entries0 = new ArrayList<RadarEntry>();
                     ArrayList<RadarEntry> entries1 = new ArrayList<RadarEntry>();
-                    ArrayList<RadarEntry> entries2 = new ArrayList<RadarEntry>();
+//                    ArrayList<RadarEntry> entries2 = new ArrayList<RadarEntry>();
 
-                    float[] toPush = new float[24];
+                    float[] toPush = new float[16];
+
+                    float min = 1e15f, max = 0;
 
                     for (int i = 0; i < 8; i++) {
                         //2000 per division 14 000 in total
                         entries0.add(new RadarEntry(setMaxValue(f0.get(i).floatValue() * 200)));
                         entries1.add(new RadarEntry(setMaxValue(f1.get(i).floatValue() * 200)));
-                        entries2.add(new RadarEntry(setMaxValue(f2.get(i).floatValue() * 200)));
+//                        entries2.add(new RadarEntry(setMaxValue(f2.get(i).floatValue() * 200)));
                         toPush[i] = f0.get(i).floatValue();
                         toPush[i + 8] = f1.get(i).floatValue();
-                        toPush[i + 16] = f2.get(i).floatValue();
+//                        toPush[i + 16] = f2.get(i).floatValue();
 
                     }
 
 
-                    for(int i = 0; i < 24; i++) {
+                    for(int i = 0; i < 16; i++) {
                         currentEMG.add(toPush[i]);
-                        if (currentEMG.size() > 24)
+                        if (currentEMG.size() > 16)
                             currentEMG.remove(0);
                     }
+
 
                     start = System.currentTimeMillis();
 

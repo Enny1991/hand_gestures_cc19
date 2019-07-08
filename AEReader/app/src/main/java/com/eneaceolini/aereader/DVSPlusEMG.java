@@ -1,7 +1,6 @@
 package com.eneaceolini.aereader;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -14,7 +13,6 @@ import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -45,6 +43,9 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.eneaceolini.aereader.biases.IPot;
+import com.eneaceolini.aereader.biases.IPotArray;
+import com.eneaceolini.aereader.biases.PotArray;
 import com.github.mikephil.charting.charts.RadarChart;
 import com.google.common.io.LittleEndianDataInputStream;
 
@@ -508,7 +509,7 @@ public class DVSPlusEMG extends Fragment {
                 Log.d("SEND BIAS", "" + start);
                 Toast.makeText(getContext(), "Bias set!", Toast.LENGTH_SHORT).show();
 
-                readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue);
+                readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue, new DVS128Processor());
 
                 readEvents.start();
                 //create and start handler used to update GUI
@@ -600,7 +601,7 @@ public class DVSPlusEMG extends Fragment {
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         if (device != null) {
                             //call method to set up device communication
-                            readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue);
+                            readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue, new DVS128Processor());
                             Log.d("DEVICE", "CONNECTED");
                         }
                     } else {

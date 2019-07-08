@@ -18,6 +18,8 @@ package com.eneaceolini.aereader;
 import android.app.Activity;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /** This TensorFlowLite classifier works with the float MobileNet model. */
 public class ClassifierFloatMobileFUS extends ClassifierFUS {
@@ -59,7 +61,7 @@ public class ClassifierFloatMobileFUS extends ClassifierFUS {
     // you can download this file from
     // see build.gradle for where to obtain this file. It should be auto
     // downloaded into assets.
-    return "cnn_fus.tflite";
+    return "cnn_200_emg+dvs_evs.tflite";
   }
 
   @Override
@@ -74,12 +76,12 @@ public class ClassifierFloatMobileFUS extends ClassifierFUS {
 
   @Override
   protected void addPixelValue(int pixelValue) {
-    imgData.putFloat(pixelValue  / 255.f);  // only one channel
+    dvsData.putFloat(pixelValue  / 255.f);  // only one channel
   }
 
   @Override
   protected void addEMGValue(float EMGValue) {
-    imgData.putFloat(EMGValue);  // only one channel
+    emgData.putFloat(EMGValue);  // only one channel
   }
 
   @Override
@@ -99,6 +101,9 @@ public class ClassifierFloatMobileFUS extends ClassifierFUS {
 
   @Override
   protected void runInference() {
-    tflite.run(imgData, labelProbArray);
+
+    Map<Integer, Object> outputMap = new HashMap<>();
+    outputMap.put(0, labelProbArray);
+    tflite.runForMultipleInputsOutputs(new Object[]{dvsData, emgData}, outputMap);
   }
 }

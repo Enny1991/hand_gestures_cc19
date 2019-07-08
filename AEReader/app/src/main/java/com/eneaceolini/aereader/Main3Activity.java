@@ -23,7 +23,6 @@ import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.ParcelUuid;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
@@ -42,8 +41,6 @@ import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -52,6 +49,8 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.eneaceolini.aereader.biases.IPot;
+import com.eneaceolini.aereader.biases.IPotArray;
 import com.github.mikephil.charting.charts.RadarChart;
 import com.google.common.io.LittleEndianDataInputStream;
 
@@ -75,8 +74,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -111,7 +110,7 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
     private int numThreads = -1;
 
     private static final int NUM_FEAT_DVS = 1296;
-    private static final int NUM_FEAT_EMG = 24;
+    private static final int NUM_FEAT_EMG = 16;
 
     private UsbManager usbManager;
     private ReadEvents readEvents;
@@ -165,6 +164,12 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
     ListView devicesList;
     AlertDialog devDialog;
 
+    ArrayList<Integer> majorVoting = new ArrayList<>();
+    int countVoting = 0;
+    private static final int ARRAY_MAJORITY = 10;
+    private static final int DELAY_MAJORITY = 5;
+
+
     /** The model type used for classification. */
     public enum Model {
         SVM,
@@ -193,7 +198,6 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
     private ArrayList<String> deviceNames = new ArrayList<>();
     public static String myoName = null;
 
-
     private ScanSettings settings;
     private List<ScanFilter> filters;
 //    private TextView scanningText;
@@ -209,6 +213,9 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayShowTitleEnabled(false);
+
+        for (int i=0; i<ARRAY_MAJORITY; i++)
+            majorVoting.add(0);
 
         modelSpinner = findViewById(R.id.model_spinner);
         featuresSpinner = findViewById(R.id.features_spinner);
@@ -326,14 +333,14 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
                         new Size(8, 8), //cellSize,
                         9); //nBins
 
-                svmDVS = loadSVM("linear_svm_dvs_v1.xml");
-                svmEMG = loadSVM("linear_svm_emg_v1.xml");
-                svmJOIN = loadSVM("linear_svm_jon_v1.xml");
+                svmDVS = loadSVM("lin_svm_dvs.xml");
+                svmEMG = loadSVM("lin_svm_emg.xml");
+                svmJOIN = loadSVM("lin_svm_emgdvs.xml");
 
-                loadArray("mean_dvs", meanDVS);
-                loadArray("std_dvs", stdDVS);
-                loadArray("mean_emg", meanEMG);
-                loadArray("std_emg", stdEMG);
+                loadArray("lin_svm_dvs.mean", meanDVS);
+                loadArray("lin_svm_dvs.std", stdDVS);
+                loadArray("lin_svm_emg.mean", meanEMG);
+                loadArray("lin_svm_emg.std", stdEMG);
             } else {
                 super.onManagerConnected(status);
             }
@@ -355,6 +362,7 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
     }
 
     private void loadArray(String fileName, float[] array) {
+        float min=1e15f, max=0;
         try {
             InputStream inputStream = Main3Activity.this.getAssets().open(fileName);
             File file = createFileFromInputStream(inputStream);
@@ -365,8 +373,15 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
             int count = 0;
             while (dis.available() > 0) {
                 array[count] = dis.readFloat();
+                if(array[count] > max)
+                    max = array[count];
+
+                if(array[count] < min)
+                    min = array[count];
                 count += 1;
             }
+
+            Log.d("MIMMAX VALS", "min :: " + min + "  :: MAX ::" + max);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -410,8 +425,6 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
         dialogBuilder.setView(dialogView);
 
         prog = (ProgressBar) dialogView.findViewById(R.id.progressBar2);
-//        scanButton = (Button) dialogView.findViewById(R.id.scanButton);
-//        scanningText = (TextView) dialogView.findViewById(R.id.scanning_text);
 
         mHandler = new Handler();
         if (!Main3Activity.this.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
@@ -617,7 +630,7 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
                 Log.d("SEND BIAS", "" + start);
                 Toast.makeText(Main3Activity.this, "Bias set!", Toast.LENGTH_SHORT).show();
 
-                readEvents = new ReadEvents(Main3Activity.this, device, usbManager, blockingQueue);
+                readEvents = new ReadEvents(Main3Activity.this, device, usbManager, blockingQueue, new DVS128Processor());
 
                 readEvents.start();
                 //create and start handler used to update GUI
@@ -705,7 +718,7 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         if (device != null) {
                             //call method to set up device communication
-                            readEvents = new ReadEvents(Main3Activity.this, device, usbManager, blockingQueue);
+                            readEvents = new ReadEvents(Main3Activity.this, device, usbManager, blockingQueue, new CochleaAms1CProcessor());
                             Log.d("DEVICE", "CONNECTED");
                         }
                     } else {
@@ -766,13 +779,14 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
         DVS128Processor.DVS128Event e;
         int r, g, b;
         float[][] col = new float[height][width];
+        float max = 0;
         Mat mat = new Mat(height, width, CvType.CV_8UC1);
         Mat toShow = new Mat(height, width, CvType.CV_8UC4);
 
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
-                mat.put(i, j, (short) 0);
-                col[i][j] = 0;
+//                mat.put(i, j, (short) 0);
+//                col[i][j] = 0;
                 toShow.put(i, j, 0, 0, 0, 255);
             }
         }
@@ -785,11 +799,26 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
                 } else {
                     r = 0; g = 255; b = 255; // blue
                 }
-                col[127 - e.y][127 - e.x] += 1;
+                if ((127 - e.y > 20) && (127 - e.y < 110) && (127 - e.x > 20) && (127 - e.x < 110)) {
+                    col[127 - e.y][127 - e.x] += 1;
+                    if (col[127 - e.y][127 - e.x] > max)
+                        max = col[127 - e.y][127 - e.x];
+//
+                }
+//                mat.put(127 - e.y, 127 - e.x, (short) (col[127 - e.y][127 - e.x] * 255));
+
                 toShow.put(127 - e.y, 127 - e.x, r, g, b, 255);
-                mat.put(127 - e.y, 127 - e.x, (short) (col[127 - e.y][127 - e.x] * 255));
             }
         }
+
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                col[i][j] /= max;
+                mat.put(i, j, (short) (col[i][j] * 255));
+            }
+        }
+
+
 
         // find center
         Pair<Integer, Integer> center = findCenter(mat);
@@ -800,44 +829,70 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
         if (cX > halfCenter && cX < (128 - halfCenter) && cY > halfCenter && cY < (128 - halfCenter)) {
 
             Mat toProcess = mat.submat(cY - halfCenter, cY + halfCenter, cX - halfCenter, cX + halfCenter);
+
             // yellow square
             for (int i = 0; i < halfCenter * 2; i++) {
-                toShow.put(cX - halfCenter + i, cY - halfCenter, rc, gc, bc, 255);
-                toShow.put(cX - halfCenter, cY - halfCenter + i, rc, gc, bc, 255);
-                toShow.put(cX - halfCenter + i, cY + halfCenter, rc, gc, bc, 255);
-                toShow.put(cX + halfCenter, cY - halfCenter + i, rc, gc, bc, 255);
+                toShow.put(cY - halfCenter + i, cX - halfCenter, rc, gc, bc, 255);
+                toShow.put(cY - halfCenter, cX - halfCenter + i, rc, gc, bc, 255);
+                toShow.put(cY - halfCenter + i, cX + halfCenter, rc, gc, bc, 255);
+                toShow.put(cY + halfCenter, cX - halfCenter + i, rc, gc, bc, 255);
             }
 
 
             long start = SystemClock.uptimeMillis();
-            if (useModel == Model.CNN && useFeatures == Features.DVS) {
-                final List<ClassifierTF.Recognition> results = classifierDVS.recognizeImage(toProcess);
-                Log.d("CNN", results.get(0).getTitle() + " :: " + results.get(0).getConfidence());
-                recognitionTextView.setText(results.get(0).getTitle());
-                recognitionValueTextView.setText(String.format("%.2f", (100 * results.get(0).getConfidence())) + "%");
-                recognition1TextView.setText(results.get(1).getTitle());
-                recognition1ValueTextView.setText(String.format("%.2f", (100 * results.get(1).getConfidence())) + "%");
-                recognition2TextView.setText(results.get(2).getTitle());
-                recognition2ValueTextView.setText(String.format("%.2f", (100 * results.get(2).getConfidence())) + "%");
-
-            }
             long stop = SystemClock.uptimeMillis() - start;
 
+//            if (useModel == Model.CNN && useFeatures == Features.DVS) {
+//                start = SystemClock.uptimeMillis();
+//                final List<ClassifierTF.Recognition> results = classifierDVS.recognizeImage(toProcess);
+//                MyPair[] res = majorityVoting(Float.parseFloat(results.get(0).getId()));
+//                if (null != res){
+//                    recognitionTextView.setText(getLabel((float) res[0].index));
+//                    recognitionValueTextView.setText(String.format("%.2f", (100 * res[0].value)) + "%");
+//                    recognition1TextView.setText(getLabel((float) res[1].index));
+//                    recognition1ValueTextView.setText(String.format("%.2f", (100 * res[1].value)) + "%");
+//                    recognition2TextView.setText(getLabel((float) res[2].index));
+//                    recognition2ValueTextView.setText(String.format("%.2f", (100 * res[2].value)) + "%");
+//                }
+//                stop = SystemClock.uptimeMillis() - start;
+//              }
+
+
             double[] hogDVS = exportImgFeatures(toProcess);
+
+            Mat featDVS = new Mat(1, NUM_FEAT_DVS, CvType.CV_32F);
+
+            for (int i = 0; i < NUM_FEAT_DVS; i++) {
+                featDVS.put(0, i, (hogDVS[i] - meanDVS[i]) / stdDVS[i]);
+            }
+
+            if (useModel == Model.SVM && useFeatures == Features.DVS) {
+                start = SystemClock.uptimeMillis();
+                float pred = svmDVS.predict(featDVS);
+                MyPair[] res = majorityVoting(pred);
+                if (null != res){
+                    recognitionTextView.setText(getLabel((float) res[0].index));
+                    recognitionValueTextView.setText(String.format("%.2f", (100 * res[0].value)) + "%");
+                    recognition1TextView.setText(getLabel((float) res[1].index));
+                    recognition1ValueTextView.setText(String.format("%.2f", (100 * res[1].value)) + "%");
+                    recognition2TextView.setText(getLabel((float) res[2].index));
+                    recognition2ValueTextView.setText(String.format("%.2f", (100 * res[2].value)) + "%");
+                }
+                stop = SystemClock.uptimeMillis() - start;
+            }
+
             // retrieve latest emg
             if (null != currentEMG && currentEMG.size() > 0) {
 
-                float[] emg = new float[24];
-                for (int i = 0; i < 24; i++) {
+                float[] emg = new float[NUM_FEAT_EMG];
+                for (int i = 0; i < NUM_FEAT_EMG; i++) {
                     emg[i] = currentEMG.get(i);
                 }
 
-                Mat featDVS = new Mat(1, NUM_FEAT_DVS, CvType.CV_32F);
                 Mat featEMG = new Mat(1, NUM_FEAT_EMG, CvType.CV_32F);
                 Mat featJOIN = new Mat(1, NUM_FEAT_DVS + NUM_FEAT_EMG, CvType.CV_32F);
 
                 for (int i = 0; i < NUM_FEAT_DVS; i++) {
-                    featDVS.put(0, i, (hogDVS[i] - meanDVS[i]) / stdDVS[i]);
                     featJOIN.put(0, i + NUM_FEAT_EMG, (hogDVS[i] - meanDVS[i]) / stdDVS[i]);
                 }
 
@@ -848,52 +903,122 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
 
                 if (useModel == Model.SVM) {
                     start = SystemClock.uptimeMillis();
-                    if (useFeatures == Features.DVS){
-                        recognitionTextView.setText(getLabel(svmDVS.predict(featDVS)));
-                        recognitionValueTextView.setText("---");
-                    }
+
                     if (useFeatures == Features.EMG){
-                        recognitionTextView.setText(getLabel(svmEMG.predict(featEMG)));
-                        recognitionValueTextView.setText("---");
+                        float pred = svmEMG.predict(featEMG);
+                        MyPair[] res = majorityVoting(pred);
+                        if (null != res){
+                            recognitionTextView.setText(getLabel((float) res[0].index));
+                            recognitionValueTextView.setText(String.format("%.2f", (100 * res[0].value)) + "%");
+                            recognition1TextView.setText(getLabel((float) res[1].index));
+                            recognition1ValueTextView.setText(String.format("%.2f", (100 * res[1].value)) + "%");
+                            recognition2TextView.setText(getLabel((float) res[2].index));
+                            recognition2ValueTextView.setText(String.format("%.2f", (100 * res[2].value)) + "%");
+                        }
                     }
                     if (useFeatures == Features.JOINT){
-                        recognitionTextView.setText(getLabel(svmJOIN.predict(featJOIN)));
-                        recognitionValueTextView.setText("---");
+                        float pred = svmJOIN.predict(featJOIN);
+                        MyPair[] res = majorityVoting(pred);
+                        if (null != res){
+                            recognitionTextView.setText(getLabel((float) res[0].index));
+                            recognitionValueTextView.setText(String.format("%.2f", (100 * res[0].value)) + "%");
+                            recognition1TextView.setText(getLabel((float) res[1].index));
+                            recognition1ValueTextView.setText(String.format("%.2f", (100 * res[1].value)) + "%");
+                            recognition2TextView.setText(getLabel((float) res[2].index));
+                            recognition2ValueTextView.setText(String.format("%.2f", (100 * res[2].value)) + "%");
+                        }
                     }
                     stop = SystemClock.uptimeMillis() - start;
                 }
 
 
                 if (useModel == Model.CNN){
-                    start = SystemClock.uptimeMillis();
+
                     if (useFeatures == Features.EMG){
+                        start = SystemClock.uptimeMillis();
                         final List<ClassifierEMG.Recognition> results = classifierEMG.recognizeEMG(featEMG);
-                        recognitionTextView.setText(results.get(0).getTitle());
-                        recognitionValueTextView.setText(String.format("%.2f", (100 * results.get(0).getConfidence())) + "%");
-                        recognition1TextView.setText(results.get(1).getTitle());
-                        recognition1ValueTextView.setText(String.format("%.2f", (100 * results.get(1).getConfidence())) + "%");
-                        recognition2TextView.setText(results.get(2).getTitle());
-                        recognition2ValueTextView.setText(String.format("%.2f", (100 * results.get(2).getConfidence())) + "%");
+                        MyPair[] res = majorityVoting(Float.parseFloat(results.get(0).getId()));
+                        if (null != res){
+                            recognitionTextView.setText(getLabel((float) res[0].index));
+                            recognitionValueTextView.setText(String.format("%.2f", (100 * res[0].value)) + "%");
+                            recognition1TextView.setText(getLabel((float) res[1].index));
+                            recognition1ValueTextView.setText(String.format("%.2f", (100 * res[1].value)) + "%");
+                            recognition2TextView.setText(getLabel((float) res[2].index));
+                            recognition2ValueTextView.setText(String.format("%.2f", (100 * res[2].value)) + "%");
+                        }
+                        stop = SystemClock.uptimeMillis() - start;
+                    }
+
+                    if (useFeatures == Features.DVS){
+                        start = SystemClock.uptimeMillis();
+                        final List<ClassifierTF.Recognition> results = classifierDVS.recognizeImage(toProcess);
+                        MyPair[] res = majorityVoting(Float.parseFloat(results.get(0).getId()));
+                        if (null != res){
+                            recognitionTextView.setText(getLabel((float) res[0].index));
+                            recognitionValueTextView.setText(String.format("%.2f", (100 * res[0].value)) + "%");
+                            recognition1TextView.setText(getLabel((float) res[1].index));
+                            recognition1ValueTextView.setText(String.format("%.2f", (100 * res[1].value)) + "%");
+                            recognition2TextView.setText(getLabel((float) res[2].index));
+                            recognition2ValueTextView.setText(String.format("%.2f", (100 * res[2].value)) + "%");
+                        }
+                        stop = SystemClock.uptimeMillis() - start;
                     }
 
                     if (useFeatures == Features.JOINT){
+                        start = SystemClock.uptimeMillis();
                         final List<ClassifierFUS.Recognition> results = classifierFUS.recognizeJoint(toProcess, featEMG);
-                        recognitionTextView.setText(results.get(0).getTitle());
-                        recognitionValueTextView.setText(String.format("%.2f", (100 * results.get(0).getConfidence())) + "%");
-                        recognition1TextView.setText(results.get(1).getTitle());
-                        recognition1ValueTextView.setText(String.format("%.2f", (100 * results.get(1).getConfidence())) + "%");
-                        recognition2TextView.setText(results.get(2).getTitle());
-                        recognition2ValueTextView.setText(String.format("%.2f", (100 * results.get(2).getConfidence())) + "%");
+
+                        MyPair[] res = majorityVoting(Float.parseFloat(results.get(0).getId()));
+                        if (null != res){
+                            recognitionTextView.setText(getLabel((float) res[0].index));
+                            recognitionValueTextView.setText(String.format("%.2f", (100 * res[0].value)) + "%");
+                            recognition1TextView.setText(getLabel((float) res[1].index));
+                            recognition1ValueTextView.setText(String.format("%.2f", (100 * res[1].value)) + "%");
+                            recognition2TextView.setText(getLabel((float) res[2].index));
+                            recognition2ValueTextView.setText(String.format("%.2f", (100 * res[2].value)) + "%");
+                        }
+                        stop = SystemClock.uptimeMillis() - start;
                     }
-                    stop = SystemClock.uptimeMillis() - start;
                 }
             }
             inferenceTimeTextView.setText(stop + "ms");
         }
 
-
-
         return toShow;
+    }
+
+    private MyPair[] majorityVoting(float prediction){
+
+        countVoting += 1;
+        majorVoting.add((int) prediction);
+        majorVoting.remove(0);
+        if (countVoting == DELAY_MAJORITY) {
+            MyPair[] resMaj = findMajor();
+            countVoting = 0;
+            return resMaj;
+        }
+        return null;
+    }
+
+    private MyPair[] findMajor() {
+        float[] counter = new float[5];
+
+        MyPair[] pairArray = new MyPair[5];
+
+        // count
+        for (int i=0; i<majorVoting.size(); i++){
+            counter[majorVoting.get(i)] += 1;
+        }
+
+        for (int i=0; i<5; i++){
+            pairArray[i] = new MyPair(i, counter[i] / ARRAY_MAJORITY);
+        }
+
+        Arrays.sort(pairArray);
+
+
+
+        return pairArray;
     }
 
     public String getLabel(float res) {
@@ -930,6 +1055,22 @@ public class Main3Activity extends AppCompatActivity implements AdapterView.OnIt
             imageView.setImageBitmap(ima2);
         }
         handler.postDelayed(runnable, 20);
+    }
+
+    public class MyPair implements Comparable<MyPair> {
+        public final int index;
+        public final float value;
+
+        public MyPair(int index, float value) {
+            this.index = index;
+            this.value = value;
+        }
+
+        @Override
+        public int compareTo(MyPair other) {
+            //multiplied to -1 as the author need descending sort order
+            return -1 * Float.valueOf(this.value).compareTo(other.value);
+        }
     }
 
 }

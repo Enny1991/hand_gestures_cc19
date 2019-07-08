@@ -17,7 +17,6 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
-import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -26,17 +25,18 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.eneaceolini.aereader.biases.IPot;
+import com.eneaceolini.aereader.biases.IPotArray;
+import com.eneaceolini.aereader.biases.PotArray;
+
 import org.opencv.android.BaseLoaderCallback;
-import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
-import org.opencv.core.Core;
 import org.opencv.core.CvException;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfFloat;
-import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.imgproc.Moments;
@@ -173,7 +173,7 @@ public class DVSFragmentv2 extends Fragment{
         btnStop.setOnClickListener(v1 -> {
             readEvents.stop_thread();
             btnStart.setEnabled(true);
-            readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue);
+            readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue, new DVS128Processor());
         });
 
         btnBias.setOnClickListener(v12 -> {
@@ -272,7 +272,7 @@ public class DVSFragmentv2 extends Fragment{
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         if (device != null) {
                             //call method to set up device communication
-                            readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue);
+                            readEvents = new ReadEvents(getContext(), device, usbManager, blockingQueue, new DVS128Processor());
                             Log.d("DEVICE", "CONNECTED");
                         }
                     } else {

@@ -45,6 +45,8 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.eneaceolini.aereader.biases.IPot;
+import com.eneaceolini.aereader.biases.IPotArray;
 import com.github.mikephil.charting.charts.RadarChart;
 import com.google.common.io.LittleEndianDataInputStream;
 
@@ -489,7 +491,7 @@ public class MainActivity2 extends AppCompatActivity {
                 Log.d("SEND BIAS", "" + start);
                 Toast.makeText(MainActivity2.this, "Bias set!", Toast.LENGTH_SHORT).show();
 
-                readEvents = new ReadEvents(MainActivity2.this, device, usbManager, blockingQueue);
+                readEvents = new ReadEvents(MainActivity2.this, device, usbManager, blockingQueue, new DVS128Processor());
 
                 readEvents.start();
                 //create and start handler used to update GUI
@@ -577,7 +579,7 @@ public class MainActivity2 extends AppCompatActivity {
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         if (device != null) {
                             //call method to set up device communication
-                            readEvents = new ReadEvents(MainActivity2.this, device, usbManager, blockingQueue);
+                            readEvents = new ReadEvents(MainActivity2.this, device, usbManager, blockingQueue, new DVS128Processor());
                             Log.d("DEVICE", "CONNECTED");
                         }
                     } else {

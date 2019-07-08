@@ -54,7 +54,7 @@ public class ClassifierFloatMobileNet extends ClassifierTF {
     // you can download this file from
     // see build.gradle for where to obtain this file. It should be auto
     // downloaded into assets.
-    return "cnn_dvs.tflite";
+    return "cnn_200_dav_evs.tflite";
   }
 
   @Override
@@ -69,7 +69,9 @@ public class ClassifierFloatMobileNet extends ClassifierTF {
 
   @Override
   protected void addPixelValue(int pixelValue) {
-    imgData.putFloat(pixelValue  / 255.f);  // only one channel
+    imgData.putFloat(((pixelValue  / 255.f) - 5.02497621399177f) / 18.176710732725073f);  // only one channel
+
+//    imgData.putFloat(pixelValue  / 255.f);  // only one channel
   }
 
   @Override
